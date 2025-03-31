@@ -9,31 +9,20 @@ Original file is located at
 import streamlit as st
 import pandas as pd
 import numpy as np
-import seaborn as sns
 import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
-from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
 from sklearn.impute import SimpleImputer
 from sklearn.decomposition import PCA
 from prince import MCA
-from sklearn.metrics import confusion_matrix, accuracy_score, classification_report
 
 # Configuración de la página
 st.set_page_config(page_title="ReDim - Análisis de Datos", layout="wide")
-st.markdown(
-    """
-    <style>
-    .stApp { background-color: #f5f5f5; }
-    h1 { color: #4CAF50; text-align: center; }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-st.title('📊 ReDim: Exploración de Datos con PCA y MCA')
-st.write('Bienvenido a ReDim, una herramienta interactiva para realizar análisis exploratorio de datos (EDA), PCA y MCA.')
+st.title('📊 ReDim: Exploración de Datos con PCA, MCA y Modelos de Predicción')
 
 # Sidebar para subir el archivo
 st.sidebar.header("Opciones")
@@ -42,54 +31,31 @@ uploaded_file = st.sidebar.file_uploader("Sube tu archivo CSV", type=["csv"])
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
     st.sidebar.success("Archivo cargado exitosamente!")
-
     st.subheader("📌 Vista previa de los datos")
     st.dataframe(df.head())
-
+    
     numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
     cat_cols = df.select_dtypes(include=['object']).columns
 
-    # EDA
+    # Análisis Exploratorio de Datos (EDA)
     if st.sidebar.button("Ejecutar EDA"):
         st.subheader("📊 Análisis Exploratorio de Datos (EDA)")
         st.write("### Estadísticas descriptivas")
         st.write(df.describe())
         st.write("### Valores nulos por columna")
         st.bar_chart(df.isnull().sum())
-        
-        if len(numeric_cols) > 0:
-            st.write("### Distribución de variables numéricas")
-            for col in numeric_cols:
-                fig, ax = plt.subplots()
-                sns.boxplot(x=df[col], ax=ax)
-                st.pyplot(fig)
-        
-        st.success("EDA completado")
-    
+
     # PCA
     if st.sidebar.button("Ejecutar PCA"):
         st.subheader("🔎 Análisis de Componentes Principales (PCA)")
         if len(numeric_cols) > 1:
             imputer = SimpleImputer(strategy='mean')
             df_filled = pd.DataFrame(imputer.fit_transform(df[numeric_cols]), columns=numeric_cols)
-            
             scaler = StandardScaler()
-            df_scaled = scaler.fit_transform(df[numeric_cols])
-            
+            df_scaled = scaler.fit_transform(df_filled)
             pca = PCA()
             pca.fit(df_scaled)
-            
-            st.write("### Varianza explicada por cada componente:")
             st.bar_chart(pca.explained_variance_ratio_)
-            
-            fig, ax = plt.subplots()
-            ax.scatter(df_scaled[:, 0], df_scaled[:, 1], alpha=0.5, color='blue')
-            ax.set_title('PCA: PC1 vs PC2')
-            ax.set_xlabel('PC1')
-            ax.set_ylabel('PC2')
-            st.pyplot(fig)
-            
-            st.success("PCA ejecutado correctamente")
         else:
             st.error("Se necesitan al menos 2 variables numéricas para ejecutar PCA")
     
@@ -100,38 +66,31 @@ if uploaded_file is not None:
             df_cat = df[cat_cols].astype(str)
             mca = MCA()
             mca.fit(df_cat)
-            
-            st.write("### Proporción de inercia explicada por cada dimensión:")
-            st.bar_chart(mca.eigenvalues_ / sum(mca.eigenvalues_))
-            
-            mca_coords = mca.row_coordinates(df_cat)
-            fig, ax = plt.subplots()
-            ax.scatter(mca_coords.iloc[:, 0], mca_coords.iloc[:, 1], alpha=0.6, color='red')
-            ax.set_title("MCA: Dim1 vs Dim2")
-            ax.set_xlabel("Dimensión 1")
-            ax.set_ylabel("Dimensión 2")
-            st.pyplot(fig)
-            
-            st.success("MCA ejecutado correctamente")
+            st.bar_chart(mca.eigenvalues_)
         else:
             st.warning("Se necesitan al menos dos columnas categóricas para ejecutar MCA.")
 
-    # Modelos de regresión
-    st.sidebar.subheader("Modelos de Regresión y Predicción")
-    model_choice = st.sidebar.selectbox("Selecciona el modelo", ["Regresión Lineal", "Regresión Logística", "LDA", "QDA"])
-    target_var = st.sidebar.selectbox("Selecciona la variable dependiente (Y)", df.columns)
-    predictor_vars = st.sidebar.multiselect("Selecciona las variables predictoras (X)", df.columns.drop(target_var))
+    # Modelos de Regresión y Predicción
+    st.sidebar.subheader("Modelos de Predicción")
+    model_option = st.sidebar.selectbox("Selecciona un modelo", ["Regresión Lineal", "Regresión Logística", "LDA", "QDA"])
+    target_col = st.sidebar.selectbox("Selecciona la variable objetivo", df.columns)
+    feature_cols = st.sidebar.multiselect("Selecciona las variables regresoras", df.columns.drop(target_col))
     
     if st.sidebar.button("Ejecutar Modelo"):
-        X = df[predictor_vars]
-        y = df[target_var]
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+        X = df[feature_cols]
+        y = df[target_col]
         
-        if model_choice == "Regresión Lineal":
+        # División de datos
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+        st.write(f"Datos de entrenamiento: {X_train.shape[0]} filas")
+        st.write(f"Datos de prueba: {X_test.shape[0]} filas")
+        
+        # Selección del modelo
+        if model_option == "Regresión Lineal":
             model = LinearRegression()
-        elif model_choice == "Regresión Logística":
+        elif model_option == "Regresión Logística":
             model = LogisticRegression()
-        elif model_choice == "LDA":
+        elif model_option == "LDA":
             model = LinearDiscriminantAnalysis()
         else:
             model = QuadraticDiscriminantAnalysis()
@@ -139,37 +98,34 @@ if uploaded_file is not None:
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
         
-        st.write("### Resultados estimados")
-        st.write(y_pred)
+        # Evaluación del modelo
+        accuracy = accuracy_score(y_test, y_pred.round())
+        precision = precision_score(y_test, y_pred.round(), average='weighted', zero_division=0)
+        recall = recall_score(y_test, y_pred.round(), average='weighted', zero_division=0)
+        f1 = f1_score(y_test, y_pred.round(), average='weighted', zero_division=0)
         
-        if model_choice != "Regresión Lineal":
-            st.write("### Matriz de Confusión")
-            cm = confusion_matrix(y_test, y_pred)
-            st.write(cm)
-            st.write("### Reporte de Clasificación")
-            st.write(classification_report(y_test, y_pred))
+        # Matriz de confusión
+        cm = confusion_matrix(y_test, y_pred.round())
+        st.write("### Matriz de Confusión")
+        st.write(cm)
         
-        st.success(f"{model_choice} ejecutado correctamente")
+        # Métricas en tabla
+        results_df = pd.DataFrame({
+            "Modelo": [model_option],
+            "Accuracy": [accuracy],
+            "Precision": [precision],
+            "Recall": [recall],
+            "F1-Score": [f1]
+        })
+        st.write("### Métricas del Modelo")
+        st.dataframe(results_df)
     
-    # Comparación de modelos
-    if st.sidebar.button("Comparar Modelos"):
+    # Comparación de Modelos
+    if st.sidebar.button("Comparación de Modelos"):
         st.subheader("📊 Comparación de Modelos")
-        models = {
-            "Regresión Logística": LogisticRegression(),
-            "LDA": LinearDiscriminantAnalysis(),
-            "QDA": QuadraticDiscriminantAnalysis()
-        }
-        results = {}
-        for name, mdl in models.items():
-            mdl.fit(X_train, y_train)
-            pred = mdl.predict(X_test)
-            acc = accuracy_score(y_test, pred)
-            results[name] = acc
-        
-        results_df = pd.DataFrame(list(results.items()), columns=["Modelo", "Exactitud"])
-        st.write(results_df)
-        best_model = results_df.loc[results_df['Exactitud'].idxmax()]
-        st.success(f"El mejor modelo es {best_model['Modelo']} con una exactitud de {best_model['Exactitud']:.2f}")
+        st.write("Se compararán las métricas de los modelos ejecutados previamente.")
+        # Aquí se pueden agregar más modelos y comparar sus métricas
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("🚀 Desarrollado con cariño por ReDim Team")
+

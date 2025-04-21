@@ -1,34 +1,10 @@
-# Análisis de datos
-pandas>=1.3.0
-numpy>=1.21.0
-
-# Visualización
-matplotlib>=3.4.0
-seaborn>=0.11.0
-plotly>=5.0.0
-
-# Machine Learning
-scikit-learn>=1.0.0
-xgboost>=1.5.0
-imbalanced-learn>=0.8.0
-category-encoders>=2.3.0
-
-# Análisis multivariado
-prince>=0.9.0
-factor-analyzer>=0.4.0
-
-# Streamlit y despliegue
-streamlit>=1.0.0
-streamlit-pandas-profiling>=0.1.3
-
-# Utilidades
-joblib>=1.0.0
-openpyxl>=3.0.0  # Para soporte de Excel
-python-dotenv>=0.19.0  # Para variables de entorno
-
-# Control de versiones
-gitpython>=3.1.0
-
-# Testing (opcional)
-pytest>=6.2.0
-pytest-cov>=2.12.0
+streamlit==1.22.0
+pandas==1.5.3
+numpy==1.23.5
+scikit-learn==1.2.0
+plotly==5.11.0
+seaborn==0.12.2
+matplotlib==3.6.3
+prince==0.10.0
+joblib==1.2.0
+statsmodels==0.13.5

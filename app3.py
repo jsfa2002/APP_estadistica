@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-"""ReDim - Análisis Multivariado Avanzado"""
+"""
+ReDim - Análisis Multivariado Completo
+Aplicación web para análisis estadístico y modelado predictivo
+"""
 
 import streamlit as st
 import pandas as pd
@@ -7,398 +10,374 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import plotly.express as px
-from io import BytesIO
-
-# Machine Learning
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.linear_model import LinearRegression, LogisticRegression, Ridge, Lasso
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from xgboost import XGBClassifier, XGBRegressor
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.svm import SVR, SVC
 from sklearn.metrics import (confusion_matrix, accuracy_score, classification_report, 
-                           mean_squared_error, r2_score, silhouette_score)
+                           mean_squared_error, r2_score, roc_curve, auc, silhouette_score)
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
-from sklearn.cluster import KMeans, DBSCAN
+from sklearn.cluster import KMeans
 from prince import MCA
-from sklearn.pipeline import Pipeline
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+import joblib
+from streamlit.components.v1 import html
 
 # Configuración de la página
-st.set_page_config(page_title="ReDim - Análisis Multivariado", layout="wide", page_icon="📊")
-st.title('📊 ReDim: Análisis Multivariado Avanzado')
+st.set_page_config(page_title="ReDim - Análisis Multivariado", layout="wide")
+st.title('📊 ReDim: Análisis Multivariado Completo')
 
-# CSS personalizado mejorado
+# CSS personalizado
 st.markdown("""
     <style>
-    .stApp { background-color: #f9f9f9; }
-    h1 { color: #2E86C1; text-align: center; font-weight: 700; }
-    h2 { color: #3498DB; border-bottom: 2px solid #3498DB; padding-bottom: 5px; }
-    h3 { color: #5DADE2; }
-    .sidebar .sidebar-content { background-color: #EBF5FB; }
-    .stButton>button { background-color: #2E86C1; color: white; }
-    .stDownloadButton>button { background-color: #28B463; color: white; }
-    .stAlert { border-left: 5px solid #2E86C1; }
+    .stApp { 
+        background-color: #f9f9f9;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    h1 { 
+        color: #2c3e50;
+        text-align: center;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 10px;
+    }
+    .sidebar .sidebar-content { 
+        background-color: #ecf0f1;
+        padding: 15px;
+    }
+    .stButton>button {
+        background-color: #3498db;
+        color: white;
+        border-radius: 5px;
+        padding: 8px 16px;
+        border: none;
+    }
+    .stButton>button:hover {
+        background-color: #2980b9;
+    }
+    .stSelectbox, .stMultiselect {
+        margin-bottom: 15px;
+    }
+    .stDataFrame {
+        font-size: 0.9em;
+    }
     </style>
     """, unsafe_allow_html=True)
 
+# Footer
+def footer():
+    html("""
+    <div style="position: fixed; bottom: 0; width: 100%; background-color: #2c3e50; color: white; padding: 10px; text-align: center;">
+        <p>© 2023 ReDim Analytics | Powered by Streamlit | <a href="#" style="color: #3498db;">Documentación</a> | <a href="#" style="color: #3498db;">Soporte</a></p>
+    </div>
+    """)
+
+footer()
+
 # Sidebar para subir el archivo
-st.sidebar.header("📂 Configuración de Datos")
-uploaded_file = st.sidebar.file_uploader("Sube tu archivo (CSV o Excel)", type=["csv", "xlsx"])
+st.sidebar.header("Opciones de Datos")
+uploaded_file = st.sidebar.file_uploader("Sube tu archivo CSV", type=["csv"])
 
-# Variables globales
+@st.cache_data
+def load_data(uploaded_file):
+    return pd.read_csv(uploaded_file)
+
 if uploaded_file is not None:
-    if uploaded_file.name.endswith('.csv'):
-        df = pd.read_csv(uploaded_file)
-    else:
-        df = pd.read_excel(uploaded_file)
-    
-    st.sidebar.success("Archivo cargado exitosamente!")
-    
-    # Identificar tipos de columnas
-    numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
-    cat_cols = df.select_dtypes(include=['object', 'category']).columns
-    
-    # Mostrar vista previa de datos
-    st.subheader("📌 Vista previa de los datos")
-    with st.expander("Ver datos completos"):
-        st.dataframe(df)
-    
-    # Mostrar información básica del dataset
-    st.subheader("🔍 Metadatos del Dataset")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Total de Registros", df.shape[0])
-        st.write("**Variables Numéricas:**", list(numeric_cols))
-    with col2:
-        st.metric("Total de Variables", df.shape[1])
-        st.write("**Variables Categóricas:**", list(cat_cols))
-    with col3:
-        st.metric("Valores Faltantes", df.isnull().sum().sum())
-        st.write("**Memoria Usada:**", f"{df.memory_usage().sum() / (1024*1024):.2f} MB")
-
-    # Menú de análisis mejorado
-    analysis_type = st.sidebar.selectbox(
-        "Selecciona el tipo de análisis",
-        ["EDA", "Modelos Predictivos", "Reducción de Dimensionalidad", "Análisis de Clusters"],
-        index=0
-    )
-
-    # ====================== EDA MEJORADO ======================
-    if analysis_type == "EDA":
-        st.subheader("📊 Análisis Exploratorio de Datos (EDA) Avanzado")
+    try:
+        # Validar tamaño del archivo
+        if uploaded_file.size > 50 * 1024 * 1024:  # 50MB
+            st.error("El archivo es demasiado grande (límite: 50MB)")
+            st.stop()
         
-        tab1, tab2, tab3, tab4 = st.tabs(["Resumen", "Distribuciones", "Correlaciones", "Datos Faltantes"])
+        df = load_data(uploaded_file)
+        st.sidebar.success("Archivo cargado exitosamente!")
         
-        with tab1:
-            st.write("### Estadísticas Descriptivas")
-            st.dataframe(df.describe().T.style.background_gradient(cmap='Blues'))
+        # Identificar tipos de columnas
+        numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
+        cat_cols = df.select_dtypes(include=['object', 'category']).columns
+        
+        # Mostrar vista previa de datos
+        st.subheader("📌 Vista previa de los datos")
+        st.dataframe(df.head())
+        
+        # Mostrar información básica del dataset
+        st.subheader("🔍 Información del Dataset")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("**Variables Numéricas:**", list(numeric_cols))
+        with col2:
+            st.write("**Variables Categóricas:**", list(cat_cols))
+        
+        # Menú de análisis
+        analysis_type = st.sidebar.radio("Selecciona el tipo de análisis", 
+                                       ["EDA", "Modelos Predictivos", "PCA", "MCA", "Clustering", "Guardar Resultados"])
+        
+        # ====================== EDA ======================
+        if analysis_type == "EDA":
+            st.subheader("📊 Análisis Exploratorio de Datos (EDA)")
             
-            st.write("### Tipos de Datos")
-            dtype_df = pd.DataFrame(df.dtypes.value_counts()).reset_index()
-            dtype_df.columns = ['Tipo', 'Conteo']
-            fig = px.pie(dtype_df, values='Conteo', names='Tipo', title='Distribución de Tipos de Datos')
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with tab2:
-            if len(numeric_cols) > 0:
-                selected_num = st.selectbox("Selecciona variable numérica", numeric_cols)
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    fig = px.histogram(df, x=selected_num, nbins=30, title=f'Distribución de {selected_num}')
-                    st.plotly_chart(fig, use_container_width=True)
-                with col2:
-                    fig = px.box(df, y=selected_num, title=f'Boxplot de {selected_num}')
-                    st.plotly_chart(fig, use_container_width=True)
-                
-                # Análisis de outliers usando IQR
-                Q1 = df[selected_num].quantile(0.25)
-                Q3 = df[selected_num].quantile(0.75)
-                IQR = Q3 - Q1
-                lower_bound = Q1 - 1.5 * IQR
-                upper_bound = Q3 + 1.5 * IQR
-                outliers = df[(df[selected_num] < lower_bound) | (df[selected_num] > upper_bound)]
-                
-                if not outliers.empty:
-                    st.warning(f"⚠️ Se detectaron {len(outliers)} outliers en {selected_num}")
-                    st.dataframe(outliers)
+            eda_tab1, eda_tab2, eda_tab3 = st.tabs(["Descriptivo", "Correlaciones", "Análisis Avanzado"])
             
-            if len(cat_cols) > 0:
-                selected_cat = st.selectbox("Selecciona variable categórica", cat_cols)
-                fig = px.bar(df[selected_cat].value_counts().reset_index(), 
-                            x='count', y=selected_cat, 
-                            title=f'Distribución de {selected_cat}',
-                            orientation='h')
-                st.plotly_chart(fig, use_container_width=True)
-        
-        with tab3:
-            if len(numeric_cols) > 1:
-                st.write("### Matriz de Correlación Numérica")
-                corr_matrix = df[numeric_cols].corr()
-                fig = px.imshow(corr_matrix, 
-                              text_auto=True, 
-                              aspect="auto",
-                              color_continuous_scale='RdBu',
-                              range_color=[-1, 1],
-                              title='Matriz de Correlación')
-                st.plotly_chart(fig, use_container_width=True)
+            with eda_tab1:
+                # Estadísticas descriptivas mejoradas
+                st.write("### Estadísticas descriptivas completas")
+                st.dataframe(df.describe(include='all').style.background_gradient(cmap='Blues')
                 
-                # Correlaciones más altas y bajas
-                corr_series = corr_matrix.unstack().sort_values(ascending=False)
-                high_corr = corr_series[corr_series < 1].head(5)
-                low_corr = corr_series.tail(5)
+                # Análisis de valores nulos mejorado
+                st.write("### Análisis de valores faltantes")
+                null_percent = df.isnull().mean() * 100
+                null_df = pd.DataFrame({
+                    'Columnas': null_percent.index,
+                    '% Valores nulos': null_percent.values,
+                    'Tipo de dato': df.dtypes.values
+                })
+                st.dataframe(null_df[null_df['% Valores nulos'] > 0].sort_values('% Valores nulos', ascending=False))
                 
-                st.write("**Correlaciones más altas:**")
-                st.write(high_corr)
+                # Distribución de variables numéricas
+                if len(numeric_cols) > 0:
+                    st.write("### Distribución de variables numéricas")
+                    selected_num = st.selectbox("Selecciona variable numérica", numeric_cols)
+                    fig, ax = plt.subplots(1, 2, figsize=(12, 4))
+                    sns.histplot(df[selected_num], kde=True, ax=ax[0])
+                    sns.boxplot(x=df[selected_num], ax=ax[1])
+                    st.pyplot(fig)
                 
-                st.write("**Correlaciones más bajas:**")
-                st.write(low_corr)
-        
-        with tab4:
-            st.write("### Análisis de Valores Faltantes")
-            null_data = df.isnull().sum().reset_index()
-            null_data.columns = ['Variable', 'Conteo Nulos']
-            null_data['Porcentaje'] = (null_data['Conteo Nulos'] / len(df)) * 100
+                # Conteo de categorías
+                if len(cat_cols) > 0:
+                    st.write("### Conteo de categorías")
+                    selected_cat = st.selectbox("Selecciona variable categórica", cat_cols)
+                    fig = px.bar(df[selected_cat].value_counts(), 
+                                title=f'Distribución de {selected_cat}')
+                    st.plotly_chart(fig)
             
-            fig = px.bar(null_data.sort_values('Porcentaje', ascending=False), 
-                        x='Porcentaje', y='Variable', 
-                        title='Porcentaje de Valores Faltantes por Variable',
-                        orientation='h')
-            st.plotly_chart(fig, use_container_width=True)
+            with eda_tab2:
+                # Correlación numérica interactiva
+                if len(numeric_cols) > 1:
+                    st.write("### Matriz de correlación interactiva")
+                    fig = px.imshow(df[numeric_cols].corr(), 
+                                 text_auto=True, 
+                                 color_continuous_scale='RdBu_r',
+                                 zmin=-1, zmax=1,
+                                 width=800, height=800)
+                    st.plotly_chart(fig)
+                    
+                    # Heatmap de correlaciones significativas
+                    st.write("### Correlaciones significativas (|r| > 0.7)")
+                    corr_matrix = df[numeric_cols].corr().abs()
+                    high_corr = corr_matrix[(corr_matrix > 0.7) & (corr_matrix < 1.0)]
+                    if high_corr.any().any():
+                        fig = px.imshow(high_corr.dropna(how='all'))
+                        st.plotly_chart(fig)
+                    else:
+                        st.info("No hay correlaciones fuertes entre variables (|r| > 0.7)")
             
-            # Estrategias para manejar nulos
-            if null_data['Conteo Nulos'].sum() > 0:
-                st.warning("¡Advertencia: Hay valores faltantes en tus datos!")
-                st.write("**Opciones para manejar nulos:**")
-                st.markdown("""
-                - **Eliminar filas:** `df.dropna()`
-                - **Eliminar columnas:** `df.dropna(axis=1)`
-                - **Imputar con media/mediana:** `df.fillna(df.mean())`
-                - **Imputar con moda:** `df.fillna(df.mode().iloc[0])`
-                - **Interpolación:** `df.interpolate()`
-                """)
-
-    # ====================== MODELOS PREDICTIVOS MEJORADOS ======================
-    elif analysis_type == "Modelos Predictivos":
-        st.subheader("🔮 Modelado Predictivo Avanzado")
+            with eda_tab3:
+                # Análisis de multicolinealidad (VIF)
+                if len(numeric_cols) > 1:
+                    st.write("### Factor de Inflación de Varianza (VIF)")
+                    vif_data = pd.DataFrame()
+                    vif_data["Variable"] = numeric_cols
+                    vif_data["VIF"] = [variance_inflation_factor(df[numeric_cols].values, i) 
+                                      for i in range(len(numeric_cols))]
+                    st.dataframe(vif_data.sort_values("VIF", ascending=False))
+                    
+                    st.markdown("""
+                    **Interpretación del VIF:**
+                    - VIF < 5: Multicolinealidad moderada
+                    - VIF >= 5 y < 10: Multicolinealidad alta
+                    - VIF >= 10: Multicolinealidad muy alta (debe tratarse)
+                    """)
         
-        tab1, tab2, tab3 = st.tabs(["Configuración", "Entrenamiento", "Evaluación"])
-        
-        with tab1:
-            target_var = st.selectbox("Selecciona la variable objetivo (Y)", df.columns)
+        # ====================== MODELOS PREDICTIVOS ======================
+        elif analysis_type == "Modelos Predictivos":
+            st.subheader("🔮 Modelos Predictivos Avanzados")
+            
+            model_choice = st.selectbox("Selecciona el modelo", 
+                                      ["Regresión Lineal", 
+                                       "Regresión Logística", 
+                                       "Random Forest",
+                                       "SVM",
+                                       "LDA", 
+                                       "QDA"])
+            
+            target_var = st.selectbox("Selecciona la variable dependiente (Y)", df.columns)
             predictor_vars = st.multiselect("Selecciona las variables predictoras (X)", 
-                                          df.columns.drop(target_var),
-                                          default=list(df.columns.drop(target_var))[:3])
+                                           df.columns.drop(target_var))
             
-            # Determinar tipo de problema
-            if len(df[target_var].unique()) <= 5 and df[target_var].dtype in ['object', 'category']:
-                problem_type = "Clasificación"
-                st.success("🔮 Se detectó un problema de Clasificación")
-            else:
-                problem_type = "Regresión"
-                st.success("📈 Se detectó un problema de Regresión")
+            # Nuevas opciones de configuración
+            advanced_options = st.expander("Opciones avanzadas")
+            with advanced_options:
+                test_size = st.slider("Tamaño del conjunto de prueba", 0.1, 0.5, 0.3)
+                random_state = st.number_input("Semilla aleatoria", value=42)
+                scale_data = st.checkbox("Estandarizar variables", value=True)
             
-            # Selección de modelos según el tipo de problema
-            if problem_type == "Clasificación":
-                model_options = {
-                    "Regresión Logística": LogisticRegression(max_iter=1000),
-                    "Análisis Discriminante Lineal (LDA)": LinearDiscriminantAnalysis(),
-                    "Análisis Discriminante Cuadrático (QDA)": QuadraticDiscriminantAnalysis(),
-                    "Random Forest": RandomForestClassifier(),
-                    "XGBoost": XGBClassifier(use_label_encoder=False, eval_metric='logloss')
-                }
-            else:
-                model_options = {
-                    "Regresión Lineal": LinearRegression(),
-                    "Regresión Ridge": Ridge(),
-                    "Regresión Lasso": Lasso(),
-                    "Random Forest": RandomForestRegressor(),
-                    "XGBoost": XGBRegressor()
-                }
-            
-            selected_models = st.multiselect("Selecciona modelos a comparar",
-                                           list(model_options.keys()),
-                                           default=list(model_options.keys())[:2])
-            
-            # Opciones avanzadas
-            with st.expander("⚙️ Opciones Avanzadas"):
-                test_size = st.slider("Tamaño del conjunto de prueba", 0.1, 0.5, 0.2, 0.05)
-                random_state = st.number_input("Semilla aleatoria", 0, 1000, 42)
-                cv_folds = st.number_input("Número de folds para validación cruzada", 2, 10, 5)
-                
-                # Hiperparámetros para GridSearch
-                if st.checkbox("Optimizar hiperparámetros (GridSearch)"):
-                    st.write("Configura los rangos para GridSearch")
-                    param_grid = {}
-                    for model_name in selected_models:
-                        if model_name == "Random Forest":
-                            param_grid[model_name] = {
-                                'n_estimators': st.multiselect("n_estimators para Random Forest", 
-                                                              [50, 100, 200], [100]),
-                                'max_depth': st.multiselect("max_depth para Random Forest", 
-                                                          [None, 5, 10], [None])
-                            }
-                        elif model_name == "XGBoost":
-                            param_grid[model_name] = {
-                                'learning_rate': st.multiselect("learning_rate para XGBoost", 
-                                                               [0.01, 0.1, 0.3], [0.1]),
-                                'max_depth': st.multiselect("max_depth para XGBoost", 
-                                                          [3, 6, 9], [6])
-                            }
-        
-        with tab2:
-            if st.button("🚀 Entrenar Modelos"):
-                st.session_state['model_results'] = {}
+            if st.button("Ejecutar Modelo"):
+                st.subheader(f"📈 Resultados del Modelo: {model_choice}")
                 
                 X = df[predictor_vars]
                 y = df[target_var]
                 
-                # Preprocesamiento
+                # Manejo de variables categóricas mejorado
                 if X.select_dtypes(include=['object']).any().any():
                     X = pd.get_dummies(X, drop_first=True)
                 
-                # Imputar valores faltantes
-                imputer = SimpleImputer(strategy='mean' if problem_type == "Regresión" else 'most_frequent')
-                X = pd.DataFrame(imputer.fit_transform(X), columns=X.columns)
+                # Estandarización
+                if scale_data and len(numeric_cols) > 0:
+                    scaler = StandardScaler()
+                    X[numeric_cols] = scaler.fit_transform(X[numeric_cols])
                 
-                # Escalar características
-                scaler = StandardScaler()
-                X_scaled = scaler.fit_transform(X)
-                
-                # Dividir datos
+                # Partición del dataset
                 X_train, X_test, y_train, y_test = train_test_split(
-                    X_scaled, y, test_size=test_size, random_state=random_state)
+                    X, y, test_size=test_size, random_state=random_state)
                 
-                progress_bar = st.progress(0)
-                status_text = st.empty()
-                
-                for i, model_name in enumerate(selected_models):
-                    status_text.text(f"Entrenando {model_name}...")
-                    progress_bar.progress((i + 1) / len(selected_models))
-                    
-                    model = model_options[model_name]
-                    
-                    # Entrenar modelo (con o sin GridSearch)
-                    if 'param_grid' in locals() and model_name in param_grid:
-                        grid_search = GridSearchCV(model, param_grid[model_name], 
-                                                cv=cv_folds, scoring='accuracy' if problem_type == "Clasificación" else 'r2')
-                        grid_search.fit(X_train, y_train)
-                        best_model = grid_search.best_estimator_
-                        best_params = grid_search.best_params_
+                # Selección del modelo ampliada
+                if model_choice == "Regresión Lineal":
+                    model = LinearRegression()
+                    model_type = "regression"
+                elif model_choice == "Regresión Logística":
+                    model = LogisticRegression(max_iter=1000)
+                    model_type = "classification"
+                elif model_choice == "Random Forest":
+                    if y.nunique() > 5:  # Heurística para decidir si es regresión o clasificación
+                        model = RandomForestRegressor()
+                        model_type = "regression"
                     else:
-                        best_model = model
-                        best_model.fit(X_train, y_train)
-                        best_params = "No optimizado"
-                    
-                    # Evaluar modelo
-                    y_pred = best_model.predict(X_test)
-                    
-                    if problem_type == "Clasificación":
-                        accuracy = accuracy_score(y_test, y_pred)
-                        report = classification_report(y_test, y_pred, output_dict=True)
-                        cm = confusion_matrix(y_test, y_pred)
-                        
-                        st.session_state['model_results'][model_name] = {
-                            'model': best_model,
-                            'type': 'classification',
-                            'accuracy': accuracy,
-                            'report': report,
-                            'confusion_matrix': cm,
-                            'best_params': best_params
-                        }
+                        model = RandomForestClassifier()
+                        model_type = "classification"
+                elif model_choice == "SVM":
+                    if y.nunique() > 5:
+                        model = SVR()
+                        model_type = "regression"
                     else:
-                        mse = mean_squared_error(y_test, y_pred)
-                        r2 = r2_score(y_test, y_pred)
-                        
-                        st.session_state['model_results'][model_name] = {
-                            'model': best_model,
-                            'type': 'regression',
-                            'mse': mse,
-                            'r2': r2,
-                            'best_params': best_params,
-                            'y_test': y_test,
-                            'y_pred': y_pred
-                        }
+                        model = SVC(probability=True)
+                        model_type = "classification"
+                elif model_choice == "LDA":
+                    model = LinearDiscriminantAnalysis()
+                    model_type = "classification"
+                else:
+                    model = QuadraticDiscriminantAnalysis()
+                    model_type = "classification"
                 
-                status_text.text("¡Entrenamiento completado!")
-                progress_bar.empty()
-                st.balloons()
-        
-        with tab3:
-            if 'model_results' in st.session_state and st.session_state['model_results']:
-                st.subheader("📊 Resultados de los Modelos")
+                # Entrenamiento y predicción
+                model.fit(X_train, y_train)
+                y_pred = model.predict(X_test)
                 
-                best_model_name = None
-                best_score = -np.inf
-                
-                for model_name, results in st.session_state['model_results'].items():
-                    with st.expander(f"🔍 {model_name}", expanded=True):
-                        st.write(f"**Parámetros óptimos:** `{results['best_params']}`")
-                        
-                        if results['type'] == 'classification':
-                            st.write(f"**Exactitud:** {results['accuracy']:.4f}")
-                            
-                            # Matriz de confusión
-                            fig, ax = plt.subplots()
-                            sns.heatmap(results['confusion_matrix'], annot=True, fmt='d', cmap='Blues', ax=ax)
-                            ax.set_xlabel('Predicho')
-                            ax.set_ylabel('Real')
-                            ax.set_title(f'Matriz de Confusión - {model_name}')
-                            st.pyplot(fig)
-                            
-                            # Reporte de clasificación
-                            st.write("**Reporte de Clasificación:**")
-                            report_df = pd.DataFrame(results['report']).transpose()
-                            st.dataframe(report_df.style.background_gradient(cmap='Blues'))
-                            
-                            # Actualizar mejor modelo
-                            if results['accuracy'] > best_score:
-                                best_score = results['accuracy']
-                                best_model_name = model_name
-                        else:
-                            st.write(f"**Error Cuadrático Medio (MSE):** {results['mse']:.4f}")
-                            st.write(f"**Coeficiente de Determinación (R²):** {results['r2']:.4f}")
-                            
-                            # Gráfico de valores reales vs predichos
-                            fig = px.scatter(x=results['y_test'], y=results['y_pred'], 
-                                           labels={'x': 'Valores Reales', 'y': 'Valores Predichos'},
-                                           title=f'Valores Reales vs Predichos - {model_name}')
-                            fig.add_shape(type='line', x0=results['y_test'].min(), y0=results['y_test'].min(),
-                                        x1=results['y_test'].max(), y1=results['y_test'].max(),
-                                        line=dict(color='Red', dash='dash'))
-                            st.plotly_chart(fig, use_container_width=True)
-                            
-                            # Actualizar mejor modelo
-                            if results['r2'] > best_score:
-                                best_score = results['r2']
-                                best_model_name = model_name
-                
-                if best_model_name:
-                    st.success(f"🏆 Mejor modelo: {best_model_name} con {'exactitud' if problem_type == 'Clasificación' else 'R²'} de {best_score:.4f}")
+                # Resultados mejorados
+                if model_type == "regression":
+                    st.write("### Métricas de Regresión")
+                    mse = mean_squared_error(y_test, y_pred)
+                    r2 = r2_score(y_test, y_pred)
+                    st.write(f"- Error Cuadrático Medio (MSE): {mse:.4f}")
+                    st.write(f"- Coeficiente de Determinación (R²): {r2:.4f}")
                     
-                    # Exportar modelo
-                    import joblib
-                    model_bytes = BytesIO()
-                    joblib.dump(st.session_state['model_results'][best_model_name]['model'], model_bytes)
-                    model_bytes.seek(0)
-                    
-                    st.download_button(
-                        label="⬇️ Descargar mejor modelo",
-                        data=model_bytes,
-                        file_name=f"best_model_{best_model_name.replace(' ', '_')}.pkl",
-                        mime="application/octet-stream"
-                    )
+                    # Gráfico de valores reales vs predichos
+                    fig = px.scatter(x=y_test, y=y_pred, 
+                                   labels={'x': 'Valores Reales', 'y': 'Valores Predichos'},
+                                   title='Valores Reales vs Predichos')
+                    fig.add_shape(type='line', line=dict(dash='dash'),
+                                x0=y.min(), x1=y.max(),
+                                y0=y.min(), y1=y.max())
+                    st.plotly_chart(fig)
 
-    # ====================== REDUCCIÓN DE DIMENSIONALIDAD ======================
-    elif analysis_type == "Reducción de Dimensionalidad":
-        st.subheader("🔎 Reducción de Dimensionalidad")
+                    # Mostrar coeficientes beta para modelos lineales
+                    if hasattr(model, 'coef_'):
+                        st.write("### Coeficientes Beta")
+                        coef_df = pd.DataFrame({
+                            "Variable": X.columns,
+                            "Coeficiente (β)": model.coef_
+                        })
+                        st.dataframe(coef_df.sort_values("Coeficiente (β)", ascending=False))
+
+                else:
+                    st.write("### Matriz de Confusión")
+                    cm = confusion_matrix(y_test, y_pred)
+                    fig = px.imshow(cm, text_auto=True, 
+                                  labels=dict(x="Predicho", y="Real"),
+                                  title="Matriz de Confusión")
+                    st.plotly_chart(fig)
+                    
+                    st.write("### Reporte de Clasificación")
+                    st.code(classification_report(y_test, y_pred))
+                    
+                    # Curva ROC para clasificación binaria
+                    if y.nunique() == 2 and hasattr(model, 'predict_proba'):
+                        y_proba = model.predict_proba(X_test)[:, 1]
+                        fpr, tpr, thresholds = roc_curve(y_test, y_proba)
+                        roc_auc = auc(fpr, tpr)
+                        
+                        fig = px.area(
+                            x=fpr, y=tpr,
+                            title=f'Curva ROC (AUC = {roc_auc:.2f})',
+                            labels=dict(x='Tasa de Falsos Positivos', y='Tasa de Verdaderos Positivos')
+                        )
+                        fig.add_shape(type='line', line=dict(dash='dash'), x0=0, x1=1, y0=0, y1=1)
+                        st.plotly_chart(fig)
+                
+                # Importancia de variables para modelos que lo soportan
+                if hasattr(model, 'feature_importances_'):
+                    st.write("### Importancia de Variables")
+                    feat_importances = pd.DataFrame({
+                        'Variable': X.columns,
+                        'Importancia': model.feature_importances_
+                    }).sort_values('Importancia', ascending=False)
+                    
+                    fig = px.bar(feat_importances, x='Importancia', y='Variable', 
+                                orientation='h', title='Importancia de Variables')
+                    st.plotly_chart(fig)
+                
+                st.success(f"{model_choice} ejecutado correctamente")
+            
+            # Comparación de modelos (solo para clasificación)
+            if len(df[target_var].unique()) <= 5:  # Si parece variable categórica
+                if st.button("Comparar Modelos de Clasificación"):
+                    st.subheader("📊 Comparación de Modelos de Clasificación")
+                    
+                    X = df[predictor_vars]
+                    y = df[target_var]
+                    
+                    if X.select_dtypes(include=['object']).any().any():
+                        X = pd.get_dummies(X, drop_first=True)
+                    
+                    if scale_data and len(numeric_cols) > 0:
+                        scaler = StandardScaler()
+                        X[numeric_cols] = scaler.fit_transform(X[numeric_cols])
+                    
+                    X_train, X_test, y_train, y_test = train_test_split(
+                        X, y, test_size=test_size, random_state=random_state)
+                    
+                    models = {
+                        "Regresión Logística": LogisticRegression(max_iter=1000),
+                        "LDA": LinearDiscriminantAnalysis(),
+                        "QDA": QuadraticDiscriminantAnalysis(),
+                        "Random Forest": RandomForestClassifier(),
+                        "SVM": SVC(probability=True)
+                    }
+                    
+                    results = []
+                    for name, model in models.items():
+                        model.fit(X_train, y_train)
+                        y_pred = model.predict(X_test)
+                        acc = accuracy_score(y_test, y_pred)
+                        results.append({"Modelo": name, "Exactitud": acc})
+                    
+                    results_df = pd.DataFrame(results)
+                    st.dataframe(results_df.sort_values("Exactitud", ascending=False))
+                    
+                    fig = px.bar(results_df.sort_values("Exactitud"), 
+                               x='Exactitud', y='Modelo', 
+                               orientation='h', title='Comparación de Modelos')
+                    fig.update_xaxes(range=[0, 1])
+                    st.plotly_chart(fig)
+                    
+                    best_model = results_df.loc[results_df['Exactitud'].idxmax()]
+                    st.success(f"Modelo más exacto: {best_model['Modelo']} con {best_model['Exactitud']:.2%}")
         
-        dim_method = st.radio("Selecciona el método", 
-                            ["PCA (Análisis de Componentes Principales)", 
-                             "MCA (Análisis de Correspondencias Múltiples)"])
-        
-        if dim_method == "PCA (Análisis de Componentes Principales)":
+        # ====================== PCA ======================
+        elif analysis_type == "PCA":
+            st.subheader("🔎 Análisis de Componentes Principales (PCA)")
+            
             if len(numeric_cols) < 2:
                 st.error("Se necesitan al menos 2 variables numéricas para ejecutar PCA")
             else:
@@ -408,7 +387,6 @@ if uploaded_file is not None:
                 
                 # Opciones de PCA
                 n_components = st.slider("Número de componentes", 2, min(10, len(selected_vars)), 2)
-                scale_data = st.checkbox("Estandarizar datos", value=True)
                 
                 if st.button("Ejecutar PCA"):
                     # Preprocesamiento
@@ -416,12 +394,8 @@ if uploaded_file is not None:
                     imputer = SimpleImputer(strategy='mean')
                     df_filled = pd.DataFrame(imputer.fit_transform(df_pca), columns=selected_vars)
                     
-                    # Escalar si es necesario
-                    if scale_data:
-                        scaler = StandardScaler()
-                        df_scaled = scaler.fit_transform(df_filled)
-                    else:
-                        df_scaled = df_filled.values
+                    scaler = StandardScaler()
+                    df_scaled = scaler.fit_transform(df_filled)
                     
                     # Aplicar PCA
                     pca = PCA(n_components=n_components)
@@ -429,54 +403,54 @@ if uploaded_file is not None:
                     components = pca.transform(df_scaled)
                     
                     # Resultados
-                    st.write("### Varianza explicada")
+                    st.write("### Varianza explicada por cada componente")
                     var_exp = pca.explained_variance_ratio_
                     cum_var_exp = np.cumsum(var_exp)
                     
                     fig = px.bar(x=range(1, n_components+1), y=var_exp,
-                                labels={'x': 'Componente', 'y': 'Varianza explicada'},
+                                labels={'x': 'Componente principal', 'y': 'Varianza explicada'},
                                 title='Varianza explicada por componente')
-                    fig.add_scatter(x=range(1, n_components+1), y=cum_var_exp, 
-                                   mode='lines+markers', name='Acumulada')
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig)
+                    
+                    fig = px.line(x=range(1, n_components+1), y=cum_var_exp,
+                                labels={'x': 'Componente principal', 'y': 'Varianza explicada acumulada'},
+                                title='Varianza acumulada')
+                    fig.update_traces(mode='lines+markers')
+                    st.plotly_chart(fig)
                     
                     # Gráfico de componentes
-                    st.write("### Gráfico de Componentes Principales")
-                    pc_df = pd.DataFrame(components[:, :2], columns=['PC1', 'PC2'])
-                    
-                    # Añadir variables categóricas para colorear si existen
-                    if len(cat_cols) > 0:
-                        color_var = st.selectbox("Variable para colorear puntos", cat_cols)
-                        pc_df[color_var] = df[color_var].values
-                        
-                        fig = px.scatter(pc_df, x='PC1', y='PC2', color=color_var,
-                                        title='PCA: Componente 1 vs Componente 2',
-                                        hover_data={color_var: True})
-                    else:
-                        fig = px.scatter(pc_df, x='PC1', y='PC2', 
+                    st.write("### Gráfico de los dos primeros componentes")
+                    if n_components >= 2:
+                        fig = px.scatter(x=components[:, 0], y=components[:, 1],
+                                       labels={'x': f'PC1 ({var_exp[0]*100:.1f}%)',
+                                              'y': f'PC2 ({var_exp[1]*100:.1f}%)'},
                                        title='PCA: Componente 1 vs Componente 2')
-                    
-                    st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Si hay una variable categórica, usarla para colorear
+                        if len(cat_cols) > 0:
+                            color_var = st.selectbox("Variable para colorear puntos", cat_cols)
+                            fig = px.scatter(x=components[:, 0], y=components[:, 1],
+                                           color=df[color_var],
+                                           labels={'x': f'PC1 ({var_exp[0]*100:.1f}%)',
+                                                  'y': f'PC2 ({var_exp[1]*100:.1f}%)'},
+                                           title=f'PCA coloreado por {color_var}')
+                        st.plotly_chart(fig)
                     
                     # Cargas factoriales
-                    st.write("### Cargas Factoriales")
+                    st.write("### Cargas factoriales (Componentes principales)")
                     loadings = pd.DataFrame(
                         pca.components_.T,
                         columns=[f'PC{i+1}' for i in range(n_components)],
                         index=selected_vars
                     )
-                    st.dataframe(loadings.style.background_gradient(cmap='RdBu', axis=None, vmin=-1, vmax=1))
+                    st.dataframe(loadings.style.background_gradient(cmap='RdBu_r', axis=None))
                     
-                    # Exportar resultados
-                    csv = loadings.to_csv(index=True).encode('utf-8')
-                    st.download_button(
-                        "⬇️ Descargar cargas factoriales",
-                        csv,
-                        "pca_loadings.csv",
-                        "text/csv"
-                    )
+                    st.success("PCA ejecutado correctamente")
         
-        else:  # MCA
+        # ====================== MCA ======================
+        elif analysis_type == "MCA":
+            st.subheader("🎭 Análisis de Correspondencias Múltiples (MCA)")
+            
             if len(cat_cols) < 2:
                 st.warning("Se necesitan al menos dos columnas categóricas para ejecutar MCA")
             else:
@@ -503,173 +477,173 @@ if uploaded_file is not None:
                     explained_inertia = [eig / total_inertia for eig in eigenvalues]
                     
                     # Resultados
-                    st.write("### Inercia explicada")
+                    st.write("### Inercia explicada por cada dimensión")
                     fig = px.bar(x=range(1, n_components+1), y=explained_inertia,
                                 labels={'x': 'Dimensión', 'y': 'Proporción de inercia explicada'},
                                 title='Inercia explicada por dimensión')
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig)
+                    
+                    # Gráfico de individuos
+                    st.write("### Gráfico de Individuos (dos primeras dimensiones)")
+                    fig = px.scatter(x=mca_coords.iloc[:, 0], y=mca_coords.iloc[:, 1],
+                                   labels={'x': f"Dimensión 1 ({explained_inertia[0]*100:.1f}%)",
+                                          'y': f"Dimensión 2 ({explained_inertia[1]*100:.1f}%)"},
+                                   title="MCA: Individuos")
+                    fig.add_hline(y=0, line_dash="dot")
+                    fig.add_vline(x=0, line_dash="dot")
+                    st.plotly_chart(fig)
                     
                     # Gráfico de categorías
-                    st.write("### Gráfico de Categorías")
-                    col_coords_df = mca_col_coords.reset_index()
-                    col_coords_df['Variable'] = col_coords_df['index'].str.split('_').str[0]
+                    st.write("### Gráfico de Categorías (dos primeras dimensiones)")
+                    mca_col_coords['Variable'] = mca_col_coords.index.str.split('_').str[0]
                     
-                    fig = px.scatter(col_coords_df, x=0, y=1, color='Variable',
-                                   hover_name='index', 
-                                   labels={'0': 'Dimensión 1', '1': 'Dimensión 2'},
-                                   title='MCA: Representación de categorías')
-                    st.plotly_chart(fig, use_container_width=True)
+                    fig = px.scatter(mca_col_coords, x=0, y=1, color='Variable',
+                                   labels={'0': f"Dimensión 1 ({explained_inertia[0]*100:.1f}%)",
+                                          '1': f"Dimensión 2 ({explained_inertia[1]*100:.1f}%)"},
+                                   title="MCA: Categorías")
+                    fig.add_hline(y=0, line_dash="dot")
+                    fig.add_vline(x=0, line_dash="dot")
+                    st.plotly_chart(fig)
                     
-                    # Exportar coordenadas
-                    csv = mca_col_coords.to_csv(index=True).encode('utf-8')
-                    st.download_button(
-                        "⬇️ Descargar coordenadas MCA",
-                        csv,
-                        "mca_coordinates.csv",
-                        "text/csv"
-                    )
+                    st.success("MCA ejecutado correctamente")
+        
+        # ====================== Clustering ======================
+        elif analysis_type == "Clustering":
+            st.subheader("🔍 Análisis de Clustering")
+            
+            if len(numeric_cols) < 2:
+                st.warning("Se necesitan al menos 2 variables numéricas para clustering")
+            else:
+                # Selección de variables
+                selected_vars = st.multiselect("Selecciona variables para clustering", 
+                                             numeric_cols, default=list(numeric_cols)[:5])
+                
+                # Preprocesamiento
+                df_cluster = df[selected_vars].copy()
+                imputer = SimpleImputer(strategy='mean')
+                df_filled = pd.DataFrame(imputer.fit_transform(df_cluster), columns=selected_vars)
+                scaler = StandardScaler()
+                df_scaled = scaler.fit_transform(df_filled)
+                
+                # Método de clustering
+                cluster_method = st.selectbox("Método de clustering", ["K-Means", "Jerárquico"])
+                
+                if cluster_method == "K-Means":
+                    # Determinación óptima de clusters
+                    st.write("### Método del Codo para determinar K óptimo")
+                    inertia = []
+                    max_clusters = min(10, len(df_scaled)-1)
+                    possible_k = range(2, max_clusters+1)
+                    
+                    for k in possible_k:
+                        kmeans = KMeans(n_clusters=k, random_state=42)
+                        kmeans.fit(df_scaled)
+                        inertia.append(kmeans.inertia_)
+                    
+                    fig = px.line(x=list(possible_k), y=inertia, 
+                                 title='Método del Codo', markers=True)
+                    fig.update_layout(xaxis_title='Número de clusters', 
+                                     yaxis_title='Inercia')
+                    st.plotly_chart(fig)
+                    
+                    # Selección de K
+                    n_clusters = st.slider("Número de clusters", 2, max_clusters, 3)
+                    
+                    # Aplicar K-Means
+                    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+                    clusters = kmeans.fit_predict(df_scaled)
+                    
+                    # Visualización
+                    if len(selected_vars) >= 2:
+                        df_vis = df_filled.copy()
+                        df_vis['Cluster'] = clusters
+                        
+                        # Gráfico 2D
+                        fig = px.scatter(df_vis, x=selected_vars[0], y=selected_vars[1],
+                                       color='Cluster', title='Visualización de Clusters')
+                        st.plotly_chart(fig)
+                        
+                        # Gráfico 3D si hay suficientes variables
+                        if len(selected_vars) >= 3:
+                            fig = px.scatter_3d(df_vis, x=selected_vars[0], y=selected_vars[1], z=selected_vars[2],
+                                              color='Cluster', title='Visualización 3D de Clusters')
+                            st.plotly_chart(fig)
+                    
+                    # Estadísticas por cluster
+                    st.write("### Estadísticas por Cluster")
+                    df_cluster_stats = df_filled.copy()
+                    df_cluster_stats['Cluster'] = clusters
+                    st.dataframe(df_cluster_stats.groupby('Cluster').mean().style.background_gradient(cmap='Blues'))
+                    
+                    # Silhouette Score
+                    silhouette_avg = silhouette_score(df_scaled, clusters)
+                    st.success(f"Silhouette Score: {silhouette_avg:.2f} (Valor entre -1 y 1, donde valores más altos indican mejor definición de clusters)")
+        
+        # ====================== Guardar Resultados ======================
+        elif analysis_type == "Guardar Resultados":
+            st.subheader("💾 Exportar Resultados")
+            
+            if 'model' in locals() or 'model' in globals():
+                st.write("### Exportar Modelo Entrenado")
+                model_name = st.text_input("Nombre del modelo", "mi_modelo")
+                
+                if st.button("Guardar Modelo"):
+                    import joblib
+                    joblib.dump(model, f'{model_name}.joblib')
+                    st.success(f"Modelo guardado como {model_name}.joblib")
+                    
+                    # Descargar el modelo
+                    with open(f'{model_name}.joblib', 'rb') as f:
+                        st.download_button(
+                            label="Descargar Modelo",
+                            data=f,
+                            file_name=f'{model_name}.joblib',
+                            mime='application/octet-stream'
+                        )
+            
+            if 'df' in locals() or 'df' in globals():
+                st.write("### Exportar Datos Procesados")
+                export_format = st.selectbox("Formato de exportación", ["CSV", "Excel"])
+                export_name = st.text_input("Nombre del archivo", "datos_procesados")
+                
+                if st.button("Exportar Datos"):
+                    if export_format == "CSV":
+                        df.to_csv(f'{export_name}.csv', index=False)
+                        with open(f'{export_name}.csv', 'rb') as f:
+                            st.download_button(
+                                label="Descargar CSV",
+                                data=f,
+                                file_name=f'{export_name}.csv',
+                                mime='text/csv'
+                            )
+                    else:
+                        df.to_excel(f'{export_name}.xlsx', index=False)
+                        with open(f'{export_name}.xlsx', 'rb') as f:
+                            st.download_button(
+                                label="Descargar Excel",
+                                data=f,
+                                file_name=f'{export_name}.xlsx',
+                                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                            )
+                    st.success("Datos exportados exitosamente")
+    
+    except Exception as e:
+        st.error(f"Error al procesar el archivo: {str(e)}")
 
-    # ====================== ANÁLISIS DE CLUSTERS ======================
-    elif analysis_type == "Análisis de Clusters":
-        st.subheader("👥 Análisis de Clusters")
-        
-        cluster_method = st.selectbox("Selecciona el método de clustering",
-                                    ["K-Means", "DBSCAN"])
-        
-        # Selección de variables
-        selected_vars = st.multiselect("Selecciona variables para clustering", 
-                                     numeric_cols, default=list(numeric_cols)[:3])
-        
-        # Preprocesamiento
-        df_cluster = df[selected_vars].copy()
-        imputer = SimpleImputer(strategy='mean')
-        df_filled = pd.DataFrame(imputer.fit_transform(df_cluster), columns=selected_vars)
-        scaler = StandardScaler()
-        df_scaled = scaler.fit_transform(df_filled)
-        
-        if cluster_method == "K-Means":
-            # Método del codo para determinar k
-            st.write("### Método del Codo para Determinar K Óptimo")
-            distortions = []
-            max_clusters = min(10, len(df_scaled)-1)
-            K = range(1, max_clusters+1)
-            
-            for k in K:
-                kmeans = KMeans(n_clusters=k, random_state=42)
-                kmeans.fit(df_scaled)
-                distortions.append(kmeans.inertia_)
-            
-            fig = px.line(x=K, y=distortions, 
-                         labels={'x': 'Número de clusters', 'y': 'Inercia'},
-                         title='Método del Codo')
-            fig.update_traces(mode='lines+markers')
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Seleccionar número de clusters
-            n_clusters = st.slider("Número de clusters", 2, max_clusters, 3)
-            
-            if st.button("Ejecutar K-Means"):
-                kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-                clusters = kmeans.fit_predict(df_scaled)
-                
-                # Añadir clusters al dataframe
-                df_cluster['Cluster'] = clusters
-                
-                # Visualización (usando PCA si hay más de 2 variables)
-                if len(selected_vars) > 2:
-                    pca = PCA(n_components=2)
-                    components = pca.fit_transform(df_scaled)
-                    plot_df = pd.DataFrame(components, columns=['PC1', 'PC2'])
-                    plot_df['Cluster'] = clusters
-                    
-                    fig = px.scatter(plot_df, x='PC1', y='PC2', color='Cluster',
-                                   title='Visualización de Clusters (PCA)')
-                else:
-                    plot_df = df_cluster.copy()
-                    fig = px.scatter(plot_df, x=selected_vars[0], y=selected_vars[1], 
-                                   color='Cluster', title='Visualización de Clusters')
-                
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # Estadísticas por cluster
-                st.write("### Estadísticas por Cluster")
-                cluster_stats = df_cluster.groupby('Cluster').mean()
-                st.dataframe(cluster_stats.style.background_gradient(cmap='Blues'))
-                
-                # Silhouette score
-                silhouette_avg = silhouette_score(df_scaled, clusters)
-                st.write(f"**Silhouette Score:** {silhouette_avg:.3f}")
-                st.caption("Valores cercanos a 1 indican clusters bien definidos.")
-                
-                # Exportar resultados
-                csv = df_cluster.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    "⬇️ Descargar datos con clusters",
-                    csv,
-                    "data_with_clusters.csv",
-                    "text/csv"
-                )
-        
-        else:  # DBSCAN
-            st.write("### Configuración de DBSCAN")
-            eps = st.slider("EPS (Distancia máxima entre puntos)", 0.1, 2.0, 0.5, 0.1)
-            min_samples = st.slider("Mínimo de muestras por cluster", 1, 20, 5)
-            
-            if st.button("Ejecutar DBSCAN"):
-                dbscan = DBSCAN(eps=eps, min_samples=min_samples)
-                clusters = dbscan.fit_predict(df_scaled)
-                
-                # Añadir clusters al dataframe
-                df_cluster['Cluster'] = clusters
-                n_clusters = len(set(clusters)) - (1 if -1 in clusters else 0)
-                n_noise = list(clusters).count(-1)
-                
-                st.write(f"**Número de clusters encontrados:** {n_clusters}")
-                st.write(f"**Puntos considerados ruido:** {n_noise}")
-                
-                # Visualización
-                if len(selected_vars) > 2:
-                    pca = PCA(n_components=2)
-                    components = pca.fit_transform(df_scaled)
-                    plot_df = pd.DataFrame(components, columns=['PC1', 'PC2'])
-                    plot_df['Cluster'] = clusters
-                    
-                    fig = px.scatter(plot_df, x='PC1', y='PC2', color='Cluster',
-                                   title='Visualización de Clusters DBSCAN (PCA)')
-                else:
-                    plot_df = df_cluster.copy()
-                    fig = px.scatter(plot_df, x=selected_vars[0], y=selected_vars[1], 
-                                   color='Cluster', title='Visualización de Clusters DBSCAN')
-                
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # Exportar resultados
-                csv = df_cluster.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    "⬇️ Descargar datos con clusters",
-                    csv,
-                    "data_with_clusters_dbscan.csv",
-                    "text/csv"
-                )
-
-# Footer
-st.sidebar.markdown("---")
-st.sidebar.markdown("""
-🚀 **ReDim Team**   
-""")
-
-# Notas finales
-with st.expander("ℹ️ Acerca de esta aplicación"):
+# Mensaje cuando no hay archivo cargado
+else:
+    st.info("👈 Por favor, sube un archivo CSV para comenzar el análisis")
     st.markdown("""
-    **ReDim - Análisis Multivariado Avanzado**  
-    Versión 2.0 | Mayo 2025  
+    ### Instrucciones:
+    1. Sube un archivo CSV usando el panel izquierdo
+    2. Selecciona el tipo de análisis que deseas realizar
+    3. Explora los resultados y visualizaciones
     
-    Esta aplicación permite realizar:
-    - Análisis exploratorio de datos (EDA)
-    - Modelado predictivo (clasificación y regresión)
-    - Reducción de dimensionalidad (PCA, MCA)
-    - Análisis de clusters (K-Means, DBSCAN)
-    
-    Desarrollado con Python, Streamlit y Scikit-learn.
+    **Tipos de análisis disponibles:**
+    - 📊 EDA: Análisis exploratorio de datos
+    - 🔮 Modelos Predictivos: Regresión y clasificación
+    - 🔎 PCA: Análisis de componentes principales
+    - 🎭 MCA: Análisis de correspondencias múltiples
+    - 🔍 Clustering: Segmentación de datos
+    - 💾 Guardar Resultados: Exportar modelos y datos
     """)
-

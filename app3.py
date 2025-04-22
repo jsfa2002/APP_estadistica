@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Aplicación de Análisis Multivariado con Streamlit
-Incluye EDA, Modelos Predictivos, PCA, MCA y sistema de comparación de modelos
+Aplicación de Análisis Multivariado con Streamlit - Versión con Coeficientes Beta
 """
 
 import streamlit as st
@@ -35,6 +34,10 @@ st.markdown("""
     .sidebar .sidebar-content { background-color: #f0f2f6; }
     .model-card { border-radius: 10px; padding: 15px; margin: 10px 0; 
                 border-left: 5px solid #4CAF50; background-color: white; }
+    .coef-table { margin-top: 20px; border-collapse: collapse; width: 100%; }
+    .coef-table th { background-color: #4CAF50; color: white; padding: 8px; text-align: left; }
+    .coef-table td { padding: 8px; border-bottom: 1px solid #ddd; }
+    .coef-table tr:nth-child(even) { background-color: #f2f2f2; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -225,12 +228,47 @@ if uploaded_file is not None:
                     
                     # Mostrar coeficientes para modelos lineales
                     if hasattr(model, 'coef_'):
-                        st.write("### Coeficientes del Modelo")
+                        st.write("### Coeficientes Beta (β)")
                         coef_df = pd.DataFrame({
                             "Variable": X.columns,
-                            "Coeficiente": model.coef_.flatten()
+                            "Coeficiente (β)": model.coef_.flatten()
                         })
-                        st.dataframe(coef_df)
+                        
+                        # Mostrar tabla con estilo CSS personalizado
+                        st.markdown("""
+                        <div style="overflow-x: auto;">
+                            <table class="coef-table">
+                                <thead>
+                                    <tr>
+                                        <th>Variable</th>
+                                        <th>Coeficiente (β)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                        """, unsafe_allow_html=True)
+                        
+                        for _, row in coef_df.iterrows():
+                            st.markdown(f"""
+                                <tr>
+                                    <td>{row['Variable']}</td>
+                                    <td>{row['Coeficiente (β)']:.6f}</td>
+                                </tr>
+                            """, unsafe_allow_html=True)
+                        
+                        st.markdown("""
+                                </tbody>
+                            </table>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Gráfico de coeficientes
+                        st.write("### Importancia de Variables (Coeficientes)")
+                        fig, ax = plt.subplots(figsize=(10, 6))
+                        sns.barplot(x='Coeficiente (β)', y='Variable', 
+                                   data=coef_df.sort_values('Coeficiente (β)', ascending=False), 
+                                   ax=ax)
+                        ax.set_title('Magnitud de los Coeficientes Beta')
+                        st.pyplot(fig)
                 
                 # Resultados para clasificación
                 else:
@@ -257,6 +295,49 @@ if uploaded_file is not None:
                     
                     st.write("### Reporte de Clasificación")
                     st.text(classification_report(y_test, y_pred))
+                    
+                    # Mostrar coeficientes para modelos lineales de clasificación
+                    if hasattr(model, 'coef_'):
+                        st.write("### Coeficientes Beta (β)")
+                        coef_df = pd.DataFrame({
+                            "Variable": X.columns,
+                            "Coeficiente (β)": model.coef_[0]  # Tomamos la primera clase para multiclase
+                        })
+                        
+                        st.markdown("""
+                        <div style="overflow-x: auto;">
+                            <table class="coef-table">
+                                <thead>
+                                    <tr>
+                                        <th>Variable</th>
+                                        <th>Coeficiente (β)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                        """, unsafe_allow_html=True)
+                        
+                        for _, row in coef_df.iterrows():
+                            st.markdown(f"""
+                                <tr>
+                                    <td>{row['Variable']}</td>
+                                    <td>{row['Coeficiente (β)']:.6f}</td>
+                                </tr>
+                            """, unsafe_allow_html=True)
+                        
+                        st.markdown("""
+                                </tbody>
+                            </table>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Gráfico de coeficientes
+                        st.write("### Importancia de Variables (Coeficientes)")
+                        fig, ax = plt.subplots(figsize=(10, 6))
+                        sns.barplot(x='Coeficiente (β)', y='Variable', 
+                                   data=coef_df.sort_values('Coeficiente (β)', ascending=False), 
+                                   ax=ax)
+                        ax.set_title('Magnitud de los Coeficientes Beta')
+                        st.pyplot(fig)
                 
                 # Visualización de árboles de decisión
                 if "Árbol" in model_choice and not "Forest" in model_choice:
@@ -291,7 +372,8 @@ if uploaded_file is not None:
                         'random_state': random_state,
                         'max_depth': max_depth if "Árbol" in model_choice or "Forest" in model_choice else None,
                         'min_samples_split': min_samples_split if "Árbol" in model_choice or "Forest" in model_choice else None,
-                        'n_estimators': n_estimators if "Forest" in model_choice else None
+                        'n_estimators': n_estimators if "Forest" in model_choice else None,
+                        'coefficients': model.coef_.tolist() if hasattr(model, 'coef_') else None
                     },
                     'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 }
@@ -379,6 +461,60 @@ if uploaded_file is not None:
                         ax.set_ylabel("Valor Métrica")
                         ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
                         st.pyplot(fig)
+                        
+                        # Mostrar coeficientes comparativos si son modelos lineales
+                        linear_models = [m for m in selected_models 
+                                       if hasattr(st.session_state.model_results[m]['model'], 'coef_')]
+                        if len(linear_models) > 1:
+                            st.write("### Comparación de Coeficientes Beta")
+                            
+                            # Recopilar todos los coeficientes
+                            all_coefs = []
+                            common_vars = set()
+                            first = True
+                            
+                            for model_name in linear_models:
+                                model_data = st.session_state.model_results[model_name]
+                                coefs = model_data['model'].coef_.flatten()
+                                vars = model_data['predictors']
+                                
+                                if first:
+                                    common_vars = set(vars)
+                                    first = False
+                                else:
+                                    common_vars = common_vars.intersection(set(vars))
+                                
+                                all_coefs.append({
+                                    'Modelo': model_name,
+                                    'coefs': coefs,
+                                    'vars': vars
+                                })
+                            
+                            # Solo mostramos variables comunes a todos los modelos
+                            if common_vars:
+                                coef_comparison = []
+                                for var in common_vars:
+                                    row = {'Variable': var}
+                                    for model_info in all_coefs:
+                                        idx = model_info['vars'].index(var)
+                                        row[model_info['Modelo']] = model_info['coefs'][idx]
+                                    coef_comparison.append(row)
+                                
+                                df_coef_comparison = pd.DataFrame(coef_comparison).set_index('Variable')
+                                
+                                st.write("Coeficientes para variables comunes:")
+                                st.dataframe(df_coef_comparison.style.format("{:.4f}"))
+                                
+                                # Gráfico de comparación de coeficientes
+                                st.write("### Comparación Visual de Coeficientes")
+                                fig, ax = plt.subplots(figsize=(10, 6))
+                                df_coef_comparison.plot(kind='bar', ax=ax)
+                                ax.set_title("Comparación de Coeficientes Beta")
+                                ax.set_ylabel("Valor del Coeficiente")
+                                ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+                                st.pyplot(fig)
+                            else:
+                                st.warning("No hay variables comunes para comparar coeficientes")
                     else:
                         st.warning("Los modelos seleccionados son de tipos diferentes (regresión/clasificación)")
                         

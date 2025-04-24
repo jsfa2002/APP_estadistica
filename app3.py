@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Aplicación de Análisis Multivariado con Validación Cruzada
+Aplicación de Análisis Multivariado con Streamlit - Versión con Coeficientes Beta
 """
 
 import streamlit as st
@@ -8,14 +8,13 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split, cross_val_score, KFold, StratifiedKFold
+from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor, plot_tree
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import (confusion_matrix, accuracy_score, classification_report, 
-                           mean_squared_error, r2_score, precision_score, recall_score, f1_score,
-                           make_scorer)
+                           mean_squared_error, r2_score, precision_score, recall_score, f1_score)
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
@@ -39,9 +38,6 @@ st.markdown("""
     .coef-table th { background-color: #4CAF50; color: white; padding: 8px; text-align: left; }
     .coef-table td { padding: 8px; border-bottom: 1px solid #ddd; }
     .coef-table tr:nth-child(even) { background-color: #f2f2f2; }
-    .cv-results { margin-top: 20px; }
-    .cv-folds { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
-    .cv-fold { background: white; border-radius: 5px; padding: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); flex: 1; min-width: 120px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -82,7 +78,40 @@ if uploaded_file is not None:
     if analysis_type == "EDA":
         st.subheader("📊 Análisis Exploratorio de Datos (EDA)")
         
-        # [Sección EDA anterior se mantiene igual...]
+        # Estadísticas descriptivas
+        st.write("### Estadísticas descriptivas")
+        st.write(df.describe())
+        
+        # Valores nulos
+        st.write("### Valores nulos por columna")
+        null_data = df.isnull().sum().reset_index()
+        null_data.columns = ['Variable', 'Conteo Nulos']
+        st.bar_chart(null_data.set_index('Variable'))
+        
+        # Distribución de variables numéricas
+        if len(numeric_cols) > 0:
+            st.write("### Distribución de variables numéricas")
+            selected_num = st.selectbox("Selecciona variable numérica", numeric_cols)
+            fig, ax = plt.subplots(1, 2, figsize=(12, 4))
+            sns.histplot(df[selected_num], kde=True, ax=ax[0])
+            sns.boxplot(x=df[selected_num], ax=ax[1])
+            st.pyplot(fig)
+        
+        # Conteo de categorías
+        if len(cat_cols) > 0:
+            st.write("### Conteo de categorías")
+            selected_cat = st.selectbox("Selecciona variable categórica", cat_cols)
+            fig, ax = plt.subplots(figsize=(8, 4))
+            sns.countplot(y=selected_cat, data=df, ax=ax, order=df[selected_cat].value_counts().index)
+            st.pyplot(fig)
+        
+        # Correlación numérica
+        if len(numeric_cols) > 1:
+            st.write("### Matriz de correlación")
+            corr_matrix = df[numeric_cols].corr()
+            fig, ax = plt.subplots(figsize=(10, 8))
+            sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap='coolwarm', ax=ax)
+            st.pyplot(fig)
     
     # ====================== MODELOS PREDICTIVOS ======================
     elif analysis_type == "Modelos Predictivos":
@@ -105,12 +134,6 @@ if uploaded_file is not None:
             with st.expander("⚙️ Configuración Avanzada"):
                 test_size = st.slider("Tamaño del conjunto de prueba (%)", 10, 40, 30)
                 random_state = st.number_input("Semilla aleatoria", value=42)
-                
-                # Configuración de validación cruzada
-                st.markdown("**Configuración de Validación Cruzada**")
-                use_cross_val = st.checkbox("Usar validación cruzada", value=True)
-                cv_folds = st.slider("Número de folds", 3, 10, 5)
-                cv_stratified = st.checkbox("Usar estratificación (para clasificación)", value=True)
                 
                 if "Árbol" in model_choice or "Forest" in model_choice:
                     max_depth = st.number_input("Profundidad máxima del árbol", min_value=1, max_value=20, value=3)
@@ -175,18 +198,18 @@ if uploaded_file is not None:
                         random_state=random_state)
                     model_type = "regression"
                 
-                # Entrenamiento y evaluación
+                # Entrenamiento y predicción
                 with st.spinner("Entrenando modelo..."):
                     model.fit(X_train, y_train)
                     y_pred = model.predict(X_test)
                 
                 # Resultados para regresión
                 if model_type == "regression":
+                    st.write("### Métricas de Regresión")
                     mse = mean_squared_error(y_test, y_pred)
                     rmse = np.sqrt(mse)
                     r2 = r2_score(y_test, y_pred)
                     
-                    st.write("### Métricas en Conjunto de Prueba")
                     metrics_df = pd.DataFrame({
                         "Métrica": ["Error Cuadrático Medio (MSE)", "Raíz del Error Cuadrático Medio (RMSE)", 
                                    "Coeficiente de Determinación (R²)"],
@@ -211,6 +234,7 @@ if uploaded_file is not None:
                             "Coeficiente (β)": model.coef_.flatten()
                         })
                         
+                        # Mostrar tabla con estilo CSS personalizado
                         st.markdown("""
                         <div style="overflow-x: auto;">
                             <table class="coef-table">
@@ -248,12 +272,12 @@ if uploaded_file is not None:
                 
                 # Resultados para clasificación
                 else:
+                    st.write("### Métricas de Clasificación")
                     accuracy = accuracy_score(y_test, y_pred)
                     precision = precision_score(y_test, y_pred, average='weighted')
                     recall = recall_score(y_test, y_pred, average='weighted')
                     f1 = f1_score(y_test, y_pred, average='weighted')
                     
-                    st.write("### Métricas en Conjunto de Prueba")
                     metrics_df = pd.DataFrame({
                         "Métrica": ["Exactitud (Accuracy)", "Precisión (Precision)", 
                                    "Sensibilidad (Recall)", "F1-Score"],
@@ -271,61 +295,49 @@ if uploaded_file is not None:
                     
                     st.write("### Reporte de Clasificación")
                     st.text(classification_report(y_test, y_pred))
-                
-                # Validación Cruzada
-                if use_cross_val:
-                    st.write("### 📊 Validación Cruzada")
                     
-                    # Configurar estrategia de validación cruzada
-                    if model_type == "classification" and cv_stratified:
-                        cv = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
-                    else:
-                        cv = KFold(n_splits=cv_folds, shuffle=True, random_state=random_state)
-                    
-                    # Métricas para validación cruzada
-                    if model_type == "regression":
-                        scoring = {
-                            'MSE': 'neg_mean_squared_error',
-                            'RMSE': make_scorer(lambda y, y_pred: np.sqrt(mean_squared_error(y, y_pred))),
-                            'R2': 'r2'
-                        }
-                    else:
-                        scoring = {
-                            'Accuracy': 'accuracy',
-                            'Precision': 'precision_weighted',
-                            'Recall': 'recall_weighted',
-                            'F1': 'f1_weighted'
-                        }
-                    
-                    # Ejecutar validación cruzada
-                    with st.spinner(f"Ejecutando validación cruzada con {cv_folds} folds..."):
-                        cv_results = {}
-                        for metric_name, metric in scoring.items():
-                            scores = cross_val_score(model, X, y, cv=cv, scoring=metric)
-                            cv_results[metric_name] = scores
-                    
-                    # Mostrar resultados de validación cruzada
-                    st.write("#### Resultados por Fold")
-                    
-                    # Crear dataframe con los resultados
-                    cv_df = pd.DataFrame(cv_results)
-                    cv_df.index = [f"Fold {i+1}" for i in range(cv_folds)]
-                    
-                    # Mostrar tabla con resultados
-                    st.dataframe(cv_df.style.format("{:.4f}"))
-                    
-                    # Mostrar métricas promedio
-                    st.write("#### Métricas Promedio")
-                    avg_results = cv_df.mean().to_frame(name="Promedio")
-                    st.dataframe(avg_results.style.format("{:.4f}"))
-                    
-                    # Gráfico de resultados de validación cruzada
-                    st.write("#### Variación entre Folds")
-                    fig, ax = plt.subplots(figsize=(10, 6))
-                    cv_df.plot(kind='box', ax=ax)
-                    ax.set_title(f"Distribución de Métricas en {cv_folds}-Fold CV")
-                    ax.set_ylabel("Valor de la Métrica")
-                    st.pyplot(fig)
+                    # Mostrar coeficientes para modelos lineales de clasificación
+                    if hasattr(model, 'coef_'):
+                        st.write("### Coeficientes Beta (β)")
+                        coef_df = pd.DataFrame({
+                            "Variable": X.columns,
+                            "Coeficiente (β)": model.coef_[0]  # Tomamos la primera clase para multiclase
+                        })
+                        
+                        st.markdown("""
+                        <div style="overflow-x: auto;">
+                            <table class="coef-table">
+                                <thead>
+                                    <tr>
+                                        <th>Variable</th>
+                                        <th>Coeficiente (β)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                        """, unsafe_allow_html=True)
+                        
+                        for _, row in coef_df.iterrows():
+                            st.markdown(f"""
+                                <tr>
+                                    <td>{row['Variable']}</td>
+                                    <td>{row['Coeficiente (β)']:.6f}</td>
+                                </tr>
+                            """, unsafe_allow_html=True)
+                        
+                        st.markdown("""
+                                </tbody>
+                            </table>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Gráfico de coeficientes
+                        st.write("### Importancia de Variables (Coeficientes)")
+                        fig, ax = plt.subplots(figsize=(10, 6))
+                        sns.barplot(x='Coeficiente (β)', y='Variable', 
+                                   data=coef_df.sort_values('Coeficiente (β)', ascending=False), 
+                                   ax=ax)
+                        ax.set_title('Magnitud de los Coeficientes Beta')
+                        st.pyplot(fig)
                 
                 # Visualización de árboles de decisión
                 if "Árbol" in model_choice and not "Forest" in model_choice:
@@ -361,15 +373,13 @@ if uploaded_file is not None:
                         'max_depth': max_depth if "Árbol" in model_choice or "Forest" in model_choice else None,
                         'min_samples_split': min_samples_split if "Árbol" in model_choice or "Forest" in model_choice else None,
                         'n_estimators': n_estimators if "Forest" in model_choice else None,
-                        'cv_folds': cv_folds if use_cross_val else None,
-                        'cv_stratified': cv_stratified if (use_cross_val and model_type == "classification") else None
+                        'coefficients': model.coef_.tolist() if hasattr(model, 'coef_') else None
                     },
-                    'cv_results': cv_results if use_cross_val else None,
                     'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 }
                 
                 st.session_state.last_model = model_key
-                st.success(f"Modelo {model_choice} entrenado y evaluado correctamente!")
+                st.success(f"Modelo {model_choice} entrenado y guardado para comparación!")
                 
                 # Mostrar resumen del modelo en un card
                 st.markdown(f"""
@@ -379,7 +389,6 @@ if uploaded_file is not None:
                     <p><strong>Tipo:</strong> {'Regresión' if model_type == 'regression' else 'Clasificación'}</p>
                     <p><strong>Variables predictoras:</strong> {', '.join(predictor_vars)}</p>
                     <p><strong>Variable objetivo:</strong> {target_var}</p>
-                    <p><strong>Validación Cruzada:</strong> {'Sí' if use_cross_val else 'No'}</p>
                 </div>
                 """, unsafe_allow_html=True)
         

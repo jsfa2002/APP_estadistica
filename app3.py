@@ -84,12 +84,7 @@ if uploaded_file is not None:
         st.write(df.describe())
         
         # Valores nulos
-        st.write("### Valores nulos por columna")
-        null_data = df.isnull().sum().reset_index()
-        null_data.columns = ['Variable', 'Conteo Nulos']
-        st.bar_chart(null_data.set_index('Variable'))
-
-        # Matriz de valores nulos (Nueva parte)
+    
         st.write("### 🔍 Matriz de patrones de valores nulos")
         fig, ax = plt.subplots(figsize=(12, 6))
         msno.matrix(df, ax=ax)

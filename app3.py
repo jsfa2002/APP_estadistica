@@ -82,11 +82,61 @@ if uploaded_file is not None:
         st.write("### Estadísticas descriptivas")
         st.write(df.describe())
         
-        # Valores nulos
-        st.write("### Valores nulos por columna")
-        null_data = df.isnull().sum().reset_index()
-        null_data.columns = ['Variable', 'Conteo Nulos']
-        st.bar_chart(null_data.set_index('Variable'))
+               # Valores nulos
+        st.write("### Análisis de Valores Nulos")
+        
+        # Pestañas para diferentes visualizaciones de nulos
+        tab_null1, tab_null2 = st.tabs(["Conteo por Columna", "Matriz de Nulos"])
+        
+        with tab_null1:
+            st.write("#### Conteo de valores nulos por columna")
+            null_data = df.isnull().sum().reset_index()
+            null_data.columns = ['Variable', 'Conteo Nulos']
+            st.bar_chart(null_data.set_index('Variable'))
+            
+            # Porcentaje de nulos
+            st.write("#### Porcentaje de valores nulos por columna")
+            null_percent = (df.isnull().mean() * 100).round(2).reset_index()
+            null_percent.columns = ['Variable', 'Porcentaje Nulos']
+            st.bar_chart(null_percent.set_index('Variable'))
+        
+        with tab_null2:
+            st.write("#### Matriz de Valores Nulos")
+            st.write("""
+            Esta matriz muestra los patrones de datos faltantes en el dataset. 
+            Cada línea representa una fila del dataset, y cada columna representa una variable.
+            Los espacios en blanco indican valores presentes, mientras que las líneas oscuras indican valores nulos.
+            """)
+            
+            # Crear figura para la matriz de nulos
+            fig, ax = plt.subplots(figsize=(12, 6))
+            msno.matrix(df, ax=ax, fontsize=10)
+            ax.set_title('Matriz de Valores Nulos', pad=20)
+            st.pyplot(fig)
+            
+            # Análisis de patrones
+            st.write("#### Patrones de Nulos Detectados")
+            
+            # Calcular correlación de nulos entre columnas
+            null_corr = df.isnull().corr()
+            
+            # Encontrar pares de columnas con alta correlación de nulos
+            high_corr_pairs = []
+            for i in range(len(null_corr.columns)):
+                for j in range(i+1, len(null_corr.columns)):
+                    if abs(null_corr.iloc[i, j]) > 0.5:  # Umbral de correlación
+                        high_corr_pairs.append((
+                            null_corr.columns[i],
+                            null_corr.columns[j],
+                            round(null_corr.iloc[i, j], 2)
+                        ))
+            
+            if high_corr_pairs:
+                st.write("**Columnas con patrones similares de valores nulos:**")
+                for pair in high_corr_pairs:
+                    st.write(f"- {pair[0]} y {pair[1]} (correlación: {pair[2]})")
+            else:
+                st.info("No se encontraron patrones fuertes de correlación entre valores nulos")
         
         # Distribución de variables numéricas
         if len(numeric_cols) > 0:

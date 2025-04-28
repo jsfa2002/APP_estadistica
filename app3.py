@@ -397,146 +397,143 @@ if uploaded_file is not None:
                 """, unsafe_allow_html=True)
         
         with tab2:
-            st.subheader("🔍 Comparar Modelos Individuales")
+    st.subheader("🔍 Comparar Modelos Individuales")
+    
+    if not st.session_state.model_results:
+        st.warning("No hay modelos entrenados para comparar")
+    else:
+        # Selección de modelos a comparar
+        available_models = list(st.session_state.model_results.keys())
+        selected_models = st.multiselect(
+            "Selecciona modelos para comparar",
+            available_models,
+            default=[st.session_state.last_model] if st.session_state.last_model else available_models[:2]
+        )
+        
+        if selected_models:
+            # Filtrar los modelos seleccionados
+            results_to_compare = {k: v for k, v in st.session_state.model_results.items() if k in selected_models}
             
-            if not st.session_state.model_results:
-                st.warning("No hay modelos entrenados para comparar")
-            else:
-                # Selección de modelos a comparar
-                available_models = list(st.session_state.model_results.keys())
-                selected_models = st.multiselect(
-                    "Selecciona modelos para comparar",
-                    available_models,
-                    default=[st.session_state.last_model] if st.session_state.last_model else available_models[:2]
-                )
-                
-                if selected_models:
-                    # Filtramos solo los modelos seleccionados
-                    results_to_compare = {k: v for k, v in st.session_state.model_results.items() 
-                                        if k in selected_models}
-                    
-                    # Mostrar detalles de los modelos seleccionados
-                    st.write("### Modelos Seleccionados")
-                    cols = st.columns(len(selected_models))
-                    for idx, model_name in enumerate(selected_models):
-                        model_data = st.session_state.model_results[model_name]
-                        with cols[idx]:
-                            st.markdown(f"""
-                            <div class="model-card">
-                                <h5>{model_name}</h5>
-                                <p><strong>Tipo:</strong> {'Regresión' if model_data['model_type'] == 'regression' else 'Clasificación'}</p>
-                                <p><strong>Objetivo:</strong> {model_data['target']}</p>
-                                <p><strong>Predictores:</strong> {len(model_data['predictors'])}</p>
-                                <p><strong>Entrenado:</strong> {model_data['timestamp']}</p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                    
-                    # Creamos dataframe comparativo
-                    comparison_data = []
-                    for model_name, model_data in results_to_compare.items():
-                        row = {'Modelo': model_name}
-                        row.update({k: v for k, v in model_data['metrics'].items() if v is not None})
-                        
-                        # Calcular AUC para modelos de clasificación con predict_proba
-                        if (model_data['model_type'] == 'classification' and 
-                            hasattr(model_data['model'], 'predict_proba')):
-                            try:
-                                y_pred_proba = model_data['model'].predict_proba(model_data['X_test'])[:, 1]
-                                fpr, tpr, _ = roc_curve(model_data['y_test'], y_pred_proba)
-                                roc_auc = auc(fpr, tpr)
-                                row['AUC'] = roc_auc
-                            except Exception as e:
-                                st.warning(f"No se pudo calcular AUC para {model_name}: {str(e)}")
-                                row['AUC'] = None
-                        
-                        comparison_data.append(row)
-                    
-                    df_comparison = pd.DataFrame(comparison_data)
-                    
-                    # Mostramos tabla comparativa
-                    st.write("### Métricas Comparativas")
-                    st.dataframe(df_comparison.set_index('Modelo').style.format("{:.4f}").highlight_max(axis=0))
-                    
-                    # Gráfico comparativo
-                    st.write("### Visualización Comparativa")
-                    
-                    # Seleccionamos qué métricas mostrar según el tipo de modelo
-                    model_types = set(st.session_state.model_results[m]['model_type'] for m in selected_models)
-                    
-                    if len(model_types) == 1:  # Todos son del mismo tipo
-                        if "regression" in model_types:
-                            metrics_to_show = ['MSE', 'RMSE', 'R2']
-                            title = "Comparación de Modelos de Regresión"
+            # Mostrar detalles de los modelos seleccionados
+            st.write("### Modelos Seleccionados")
+            cols = st.columns(len(selected_models))
+            for idx, model_name in enumerate(selected_models):
+                model_data = st.session_state.model_results[model_name]
+                with cols[idx]:
+                    st.markdown(f"""
+                    <div class="model-card">
+                        <h5>{model_name}</h5>
+                        <p><strong>Tipo:</strong> {'Regresión' if model_data['model_type'] == 'regression' else 'Clasificación'}</p>
+                        <p><strong>Objetivo:</strong> {model_data['target']}</p>
+                        <p><strong>Predictores:</strong> {len(model_data['predictors'])}</p>
+                        <p><strong>Entrenado:</strong> {model_data['timestamp']}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+            
+            # Crear dataframe comparativo
+            comparison_data = []
+            auc_scores = []
+            for model_name, model_data in results_to_compare.items():
+                row = {'Modelo': model_name}
+                for k, v in model_data['metrics'].items():
+                    if v is not None:
+                        if 'p-value' in k:
+                            v = round(v * 100, 2)
+                            row[k] = f"{v}%"
                         else:
-                            metrics_to_show = ['Accuracy', 'Precision', 'Recall', 'F1']
-                            if 'AUC' in df_comparison.columns:
-                                metrics_to_show.append('AUC')
-                            title = "Comparación de Modelos de Clasificación"
+                            row[k] = v
+                            
+                if model_data['model_type'] == 'classification':
+                    y_true = model_data['target_values']
+                    y_pred_proba = model_data['model'].predict_proba(model_data['predictor_values'])[:, 1]
+                    
+                    fpr, tpr, _ = roc_curve(y_true, y_pred_proba)
+                    roc_auc = auc(fpr, tpr)
+                    auc_scores.append(roc_auc)
+                    row['AUC'] = round(roc_auc, 4)
+                    
+                comparison_data.append(row)
+            
+            df_comparison = pd.DataFrame(comparison_data)
+            
+            # Mostrar tabla comparativa
+            st.write("### Métricas Comparativas")
+            st.dataframe(df_comparison.set_index('Modelo').style.format("{:.4f}").highlight_max(axis=0))
+            
+            # Gráfico comparativo
+            st.write("### Visualización Comparativa")
+            model_types = set(st.session_state.model_results[m]['model_type'] for m in selected_models)
+            
+            if len(model_types) == 1:
+                if "regression" in model_types:
+                    metrics_to_show = ['MSE', 'RMSE', 'R2']
+                    title = "Comparación de Modelos de Regresión"
+                else:
+                    metrics_to_show = ['Accuracy', 'Precision', 'Recall', 'F1', 'AUC']
+                    title = "Comparación de Modelos de Clasificación"
+                
+                fig, ax = plt.subplots(figsize=(10, 6))
+                df_comparison.set_index('Modelo')[metrics_to_show].plot(kind='bar', ax=ax)
+                ax.set_title(title)
+                ax.set_ylabel("Valor Métrica")
+                ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+                st.pyplot(fig)
+                
+                # Mostrar p-valores para modelos de regresión lineal
+                linear_models = [m for m in selected_models if hasattr(st.session_state.model_results[m]['model'], 'pvalues')]
+                
+                if linear_models:
+                    st.write("### Comparación de P-Valores")
+                    
+                    all_pvalues = []
+                    common_vars = None
+                    
+                    for model_name in linear_models:
+                        model_data = st.session_state.model_results[model_name]
+                        pvalues = model_data['model'].pvalues
                         
+                        if common_vars is None:
+                            common_vars = set(pvalues.index)
+                        else:
+                            common_vars &= set(pvalues.index)
+                        
+                        all_pvalues.append({
+                            'Modelo': model_name,
+                            'pvalues': pvalues
+                        })
+                    
+                    if common_vars:
+                        pvalue_comparison = []
+                        for var in common_vars:
+                            row = {'Variable': var}
+                            for model_info in all_pvalues:
+                                model_name = model_info['Modelo']
+                                pval = model_info['pvalues'].get(var, None)
+                                if pval is not None:
+                                    row[model_name] = f"{round(pval * 100, 2)}%"
+                                else:
+                                    row[model_name] = "N/A"
+                            pvalue_comparison.append(row)
+                        
+                        df_pvalue_comparison = pd.DataFrame(pvalue_comparison).set_index('Variable')
+                        
+                        st.write("P-Valores para variables comunes:")
+                        st.dataframe(df_pvalue_comparison)
+                        
+                        # Gráfico de p-valores
+                        st.write("### Comparación Visual de P-Valores")
                         fig, ax = plt.subplots(figsize=(10, 6))
-                        df_comparison.set_index('Modelo')[metrics_to_show].plot(
-                            kind='bar', ax=ax)
-                        ax.set_title(title)
-                        ax.set_ylabel("Valor Métrica")
+                        df_pvalue_comparison.applymap(lambda x: float(x.strip('%')) if isinstance(x, str) and '%' in x else None).plot(kind='bar', ax=ax)
+                        ax.set_title("Comparación de P-Valores")
+                        ax.set_ylabel("P-Valor (%)")
                         ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
                         st.pyplot(fig)
-                        
-                        # Mostrar curvas ROC para modelos de clasificación
-                        if "classification" in model_types and 'AUC' in df_comparison.columns:
-                            st.write("### Curvas ROC Comparativas")
-                            fig, ax = plt.subplots(figsize=(8, 6))
-                            
-                            for model_name in selected_models:
-                                model_data = st.session_state.model_results[model_name]
-                                if (model_data['model_type'] == 'classification' and 
-                                    hasattr(model_data['model'], 'predict_proba')):
-                                    y_pred_proba = model_data['model'].predict_proba(model_data['X_test'])[:, 1]
-                                    fpr, tpr, _ = roc_curve(model_data['y_test'], y_pred_proba)
-                                    roc_auc = auc(fpr, tpr)
-                                    ax.plot(fpr, tpr, label=f'{model_name} (AUC = {roc_auc:.2f})')
-                            
-                            ax.plot([0, 1], [0, 1], 'k--')
-                            ax.set_xlim([0.0, 1.0])
-                            ax.set_ylim([0.0, 1.05])
-                            ax.set_xlabel('Tasa de Falsos Positivos')
-                            ax.set_ylabel('Tasa de Verdaderos Positivos')
-                            ax.set_title('Curvas ROC Comparativas')
-                            ax.legend(loc="lower right")
-                            st.pyplot(fig)
                     else:
-                        st.warning("Los modelos seleccionados son de tipos diferentes (regresión/clasificación)")
-                        
-                        # Mostramos gráficos separados por tipo
-                        st.write("#### Modelos de Regresión")
-                        reg_models = [m for m in selected_models 
-                                    if st.session_state.model_results[m]['model_type'] == 'regression']
-                        if reg_models:
-                            reg_data = [{'Modelo': m, **st.session_state.model_results[m]['metrics']} 
-                                      for m in reg_models]
-                            df_reg = pd.DataFrame(reg_data).set_index('Modelo')
-                            df_reg = df_reg[['MSE', 'RMSE', 'R2']]
-                            
-                            fig, ax = plt.subplots(figsize=(10, 4))
-                            df_reg.plot(kind='bar', ax=ax)
-                            ax.set_title("Modelos de Regresión")
-                            st.pyplot(fig)
-                        
-                        st.write("#### Modelos de Clasificación")
-                        clf_models = [m for m in selected_models 
-                                     if st.session_state.model_results[m]['model_type'] == 'classification']
-                        if clf_models:
-                            clf_data = [{'Modelo': m, **st.session_state.model_results[m]['metrics']} 
-                                       for m in clf_models]
-                            df_clf = pd.DataFrame(clf_data).set_index('Modelo')
-                            metrics = ['Accuracy', 'Precision', 'Recall', 'F1']
-                            if 'AUC' in df_clf.columns:
-                                metrics.append('AUC')
-                            df_clf = df_clf[metrics]
-                            
-                            fig, ax = plt.subplots(figsize=(10, 4))
-                            df_clf.plot(kind='bar', ax=ax)
-                            ax.set_title("Modelos de Clasificación")
-                            st.pyplot(fig)
+                        st.warning("No hay variables comunes para comparar p-valores")
+                else:
+                    st.warning("Ninguno de los modelos tiene p-valores disponibles para comparar")
+            else:
+                st.warning("Los modelos seleccionados son de tipos diferentes (regresión/clasificación)")
         
         with tab3:
             st.subheader("📊 Comparación Automática de Todos los Modelos")

@@ -75,6 +75,51 @@ if uploaded_file is not None:
     analysis_type = st.sidebar.radio("Selecciona el tipo de análisis", 
                                    ["EDA", "Modelos Predictivos", "PCA", "MCA"])
 
+  # ====================== EDA ======================
+    if analysis_type == "EDA":
+        st.subheader("📊 Análisis Exploratorio de Datos (EDA)")
+        
+        # Estadísticas descriptivas
+        st.write("### Estadísticas descriptivas")
+        st.write(df.describe())
+        
+        # Valores nulos
+        st.write("### Valores nulos por columna")
+        null_data = df.isnull().sum().reset_index()
+        null_data.columns = ['Variable', 'Conteo Nulos']
+        st.bar_chart(null_data.set_index('Variable'))
+
+        # Matriz de valores nulos (Nueva parte)
+        st.write("### 🔍 Matriz de patrones de valores nulos")
+        fig, ax = plt.subplots(figsize=(12, 6))
+        msno.matrix(df, ax=ax)
+        st.pyplot(fig)
+        
+        # Distribución de variables numéricas
+        if len(numeric_cols) > 0:
+            st.write("### Distribución de variables numéricas")
+            selected_num = st.selectbox("Selecciona variable numérica", numeric_cols)
+            fig, ax = plt.subplots(1, 2, figsize=(12, 4))
+            sns.histplot(df[selected_num], kde=True, ax=ax[0])
+            sns.boxplot(x=df[selected_num], ax=ax[1])
+            st.pyplot(fig)
+        
+        # Conteo de categorías
+        if len(cat_cols) > 0:
+            st.write("### Conteo de categorías")
+            selected_cat = st.selectbox("Selecciona variable categórica", cat_cols)
+            fig, ax = plt.subplots(figsize=(8, 4))
+            sns.countplot(y=selected_cat, data=df, ax=ax, order=df[selected_cat].value_counts().index)
+            st.pyplot(fig)
+        
+        # Correlación numérica
+        if len(numeric_cols) > 1:
+            st.write("### Matriz de correlación")
+            corr_matrix = df[numeric_cols].corr()
+            fig, ax = plt.subplots(figsize=(10, 8))
+            sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap='coolwarm', ax=ax)
+            st.pyplot(fig)
+
      # ====================== MODELOS PREDICTIVOS ======================
     elif analysis_type == "Modelos Predictivos":
         st.subheader("🔮 Modelos Predictivos")

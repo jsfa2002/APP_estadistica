@@ -354,7 +354,7 @@ if uploaded_file is not None:
                 </div>
                 """, unsafe_allow_html=True)
         
-        with tab2:
+    with tab2:
     st.subheader("🔍 Comparar Modelos Individuales")
     
     if not st.session_state.model_results:

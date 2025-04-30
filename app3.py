@@ -124,43 +124,37 @@ if uploaded_file is not None:
         
         with tab1:
             model_choice = st.selectbox("Selecciona el modelo", 
-                                      ["Regresión Lineal", "Regresión Logística", "LDA", "QDA", 
-                                       "Árbol de Decisión (Clasificación)", "Árbol de Decisión (Regresión)",
-                                       "Random Forest (Clasificación)", "Random Forest (Regresión)"])
-            
+                                        ["Regresión Lineal", "Regresión Logística", "LDA", "QDA", 
+                                         "Árbol de Decisión (Clasificación)", "Árbol de Decisión (Regresión)",
+                                         "Random Forest (Clasificación)", "Random Forest (Regresión)"])
+        
             target_var = st.selectbox("Selecciona la variable dependiente (Y)", df.columns)
-            predictor_vars = st.multiselect("Selecciona las variables predictoras (X)", 
-                                          df.columns.drop(target_var))
-            
-            # Configuración avanzada de modelos
-            with st.expander("⚙️ Configuración Avanzada"):
+            predictor_vars = st.multiselect("Selecciona las variables predictoras (X)", df.columns.drop(target_var))
+        
+            with st.expander("⚙ Configuración Avanzada"):
                 test_size = st.slider("Tamaño del conjunto de prueba (%)", 10, 40, 30)
                 random_state = st.number_input("Semilla aleatoria", value=42)
-                
+        
                 if "Árbol" in model_choice or "Forest" in model_choice:
                     max_depth = st.number_input("Profundidad máxima del árbol", min_value=1, max_value=20, value=3)
                     min_samples_split = st.number_input("Mínimo de muestras para dividir", min_value=2, max_value=20, value=2)
                     if "Forest" in model_choice:
                         n_estimators = st.number_input("Número de árboles", min_value=10, max_value=500, value=100)
-            
+        
             if st.button("🔧 Entrenar Modelo"):
                 st.subheader(f"📈 Resultados del Modelo: {model_choice}")
-                
+        
                 X = df[predictor_vars]
                 y = df[target_var]
-                
-                # Manejo de variables categóricas si es necesario
+        
                 if X.select_dtypes(include=['object']).any().any():
                     X = pd.get_dummies(X, drop_first=True)
-                
-                # Partición del dataset
-                X_train, X_test, y_train, y_test = train_test_split(
-                    X, y, test_size=test_size/100, random_state=random_state)
-                
-                # Selección y configuración del modelo
+        
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=random_state)
+        
                 model = None
                 model_type = ""
-                
+        
                 if model_choice == "Regresión Lineal":
                     model = LinearRegression()
                     model_type = "regression"
@@ -174,52 +168,35 @@ if uploaded_file is not None:
                     model = QuadraticDiscriminantAnalysis()
                     model_type = "classification"
                 elif model_choice == "Árbol de Decisión (Clasificación)":
-                    model = DecisionTreeClassifier(
-                        max_depth=max_depth, 
-                        min_samples_split=min_samples_split,
-                        random_state=random_state)
+                    model = DecisionTreeClassifier(max_depth=max_depth, min_samples_split=min_samples_split, random_state=random_state)
                     model_type = "classification"
                 elif model_choice == "Árbol de Decisión (Regresión)":
-                    model = DecisionTreeRegressor(
-                        max_depth=max_depth,
-                        min_samples_split=min_samples_split,
-                        random_state=random_state)
+                    model = DecisionTreeRegressor(max_depth=max_depth, min_samples_split=min_samples_split, random_state=random_state)
                     model_type = "regression"
                 elif model_choice == "Random Forest (Clasificación)":
-                    model = RandomForestClassifier(
-                        n_estimators=n_estimators,
-                        max_depth=max_depth,
-                        min_samples_split=min_samples_split,
-                        random_state=random_state)
+                    model = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, min_samples_split=min_samples_split, random_state=random_state)
                     model_type = "classification"
                 elif model_choice == "Random Forest (Regresión)":
-                    model = RandomForestRegressor(
-                        n_estimators=n_estimators,
-                        max_depth=max_depth,
-                        min_samples_split=min_samples_split,
-                        random_state=random_state)
+                    model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, min_samples_split=min_samples_split, random_state=random_state)
                     model_type = "regression"
-                
-                # Entrenamiento y predicción
+        
                 with st.spinner("Entrenando modelo..."):
                     model.fit(X_train, y_train)
                     y_pred = model.predict(X_test)
-                
-                # Resultados para regresión
+        
                 if model_type == "regression":
                     st.write("### Métricas de Regresión")
                     mse = mean_squared_error(y_test, y_pred)
                     rmse = np.sqrt(mse)
                     r2 = r2_score(y_test, y_pred)
-                    
+        
                     metrics_df = pd.DataFrame({
                         "Métrica": ["Error Cuadrático Medio (MSE)", "Raíz del Error Cuadrático Medio (RMSE)", 
-                                   "Coeficiente de Determinación (R²)"],
+                                    "Coeficiente de Determinación (R²)"],
                         "Valor": [mse, rmse, r2]
                     })
                     st.dataframe(metrics_df.style.format({"Valor": "{:.4f}"}))
-                    
-                    # Gráfico de valores reales vs predichos
+        
                     fig, ax = plt.subplots()
                     ax.scatter(y_test, y_pred, alpha=0.5)
                     ax.plot([y.min(), y.max()], [y.min(), y.max()], 'k--', lw=2)
@@ -227,66 +204,41 @@ if uploaded_file is not None:
                     ax.set_ylabel('Valores Predichos')
                     ax.set_title('Valores Reales vs Predichos')
                     st.pyplot(fig)
-                    
-                    # Mostrar coeficientes para modelos lineales
+        
                     if hasattr(model, 'coef_'):
                         st.write("### Coeficientes Beta (β)")
                         coef_df = pd.DataFrame({
                             "Variable": X.columns,
                             "Coeficiente (β)": model.coef_.flatten()
                         })
-                        
-                        # Mostrar tabla con estilo CSS personalizado
-                        st.markdown("""
-                        <div style="overflow-x: auto;">
-                            <table class="coef-table">
-                                <thead>
-                                    <tr>
-                                        <th>Variable</th>
-                                        <th>Coeficiente (β)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                        """, unsafe_allow_html=True)
-                        
+        
+                        st.markdown("""<div style="overflow-x: auto;"><table class="coef-table">
+                                        <thead><tr><th>Variable</th><th>Coeficiente (β)</th></tr></thead><tbody>""", unsafe_allow_html=True)
+        
                         for _, row in coef_df.iterrows():
-                            st.markdown(f"""
-                                <tr>
-                                    <td>{row['Variable']}</td>
-                                    <td>{row['Coeficiente (β)']:.6f}</td>
-                                </tr>
-                            """, unsafe_allow_html=True)
-                        
-                        st.markdown("""
-                                </tbody>
-                            </table>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        # Gráfico de coeficientes
-                        st.write("### Importancia de Variables (Coeficientes)")
+                            st.markdown(f"<tr><td>{row['Variable']}</td><td>{row['Coeficiente (β)']:.6f}</td></tr>", unsafe_allow_html=True)
+        
+                        st.markdown("""</tbody></table></div>""", unsafe_allow_html=True)
+        
                         fig, ax = plt.subplots(figsize=(10, 6))
-                        sns.barplot(x='Coeficiente (β)', y='Variable', 
-                                   data=coef_df.sort_values('Coeficiente (β)', ascending=False), 
-                                   ax=ax)
+                        sns.barplot(x='Coeficiente (β)', y='Variable', data=coef_df.sort_values('Coeficiente (β)', ascending=False), ax=ax)
                         ax.set_title('Magnitud de los Coeficientes Beta')
                         st.pyplot(fig)
-                
-                # Resultados para clasificación
+        
                 else:
                     st.write("### Métricas de Clasificación")
                     accuracy = accuracy_score(y_test, y_pred)
                     precision = precision_score(y_test, y_pred, average='weighted')
                     recall = recall_score(y_test, y_pred, average='weighted')
                     f1 = f1_score(y_test, y_pred, average='weighted')
-                    
+        
                     metrics_df = pd.DataFrame({
                         "Métrica": ["Exactitud (Accuracy)", "Precisión (Precision)", 
-                                   "Sensibilidad (Recall)", "F1-Score"],
+                                    "Sensibilidad (Recall)", "F1-Score"],
                         "Valor": [accuracy, precision, recall, f1]
                     })
                     st.dataframe(metrics_df.style.format({"Valor": "{:.4f}"}))
-                    
+        
                     st.write("### Matriz de Confusión")
                     cm = confusion_matrix(y_test, y_pred)
                     fig, ax = plt.subplots()
@@ -294,66 +246,62 @@ if uploaded_file is not None:
                     ax.set_xlabel('Predicho')
                     ax.set_ylabel('Real')
                     st.pyplot(fig)
-                    
+        
                     st.write("### Reporte de Clasificación")
                     st.text(classification_report(y_test, y_pred))
-                    
-                    # Mostrar coeficientes para modelos lineales de clasificación
+        
+                    # 🔵 Curva ROC y AUC
+                    if hasattr(model, "predict_proba"):
+                        with st.expander("📈 Curva ROC y AUC (opcional)"):
+                            try:
+                                y_pred_proba = model.predict_proba(X_test)[:, 1]
+                                auc_score = roc_auc_score(y_test, y_pred_proba)
+        
+                                st.write("### Área bajo la Curva ROC (AUC)")
+                                st.metric(label="AUC", value=f"{auc_score:.4f}")
+        
+                                fig, ax = plt.subplots(figsize=(8,6))
+                                fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
+                                ax.plot(fpr, tpr, label=f"AUC = {auc_score:.2f}")
+                                ax.plot([0, 1], [0, 1], 'k--', lw=2)
+                                ax.set_xlabel('Tasa de Falsos Positivos (FPR)')
+                                ax.set_ylabel('Tasa de Verdaderos Positivos (TPR)')
+                                ax.set_title('Curva ROC')
+                                ax.legend(loc="lower right")
+                                st.pyplot(fig)
+        
+                            except Exception as e:
+                                st.warning(f"No se pudo calcular la Curva ROC: {e}")
+        
                     if hasattr(model, 'coef_'):
                         st.write("### Coeficientes Beta (β)")
                         coef_df = pd.DataFrame({
                             "Variable": X.columns,
-                            "Coeficiente (β)": model.coef_[0]  # Tomamos la primera clase para multiclase
+                            "Coeficiente (β)": model.coef_[0]
                         })
-                        
-                        st.markdown("""
-                        <div style="overflow-x: auto;">
-                            <table class="coef-table">
-                                <thead>
-                                    <tr>
-                                        <th>Variable</th>
-                                        <th>Coeficiente (β)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                        """, unsafe_allow_html=True)
-                        
+        
+                        st.markdown("""<div style="overflow-x: auto;"><table class="coef-table">
+                                        <thead><tr><th>Variable</th><th>Coeficiente (β)</th></tr></thead><tbody>""", unsafe_allow_html=True)
+        
                         for _, row in coef_df.iterrows():
-                            st.markdown(f"""
-                                <tr>
-                                    <td>{row['Variable']}</td>
-                                    <td>{row['Coeficiente (β)']:.6f}</td>
-                                </tr>
-                            """, unsafe_allow_html=True)
-                        
-                        st.markdown("""
-                                </tbody>
-                            </table>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        # Gráfico de coeficientes
-                        st.write("### Importancia de Variables (Coeficientes)")
+                            st.markdown(f"<tr><td>{row['Variable']}</td><td>{row['Coeficiente (β)']:.6f}</td></tr>", unsafe_allow_html=True)
+        
+                        st.markdown("""</tbody></table></div>""", unsafe_allow_html=True)
+        
                         fig, ax = plt.subplots(figsize=(10, 6))
-                        sns.barplot(x='Coeficiente (β)', y='Variable', 
-                                   data=coef_df.sort_values('Coeficiente (β)', ascending=False), 
-                                   ax=ax)
+                        sns.barplot(x='Coeficiente (β)', y='Variable', data=coef_df.sort_values('Coeficiente (β)', ascending=False), ax=ax)
                         ax.set_title('Magnitud de los Coeficientes Beta')
                         st.pyplot(fig)
-                
-                # Visualización de árboles de decisión
+        
                 if "Árbol" in model_choice and not "Forest" in model_choice:
                     st.write("### Visualización del Árbol de Decisión")
                     fig, ax = plt.subplots(figsize=(20, 10))
                     plot_tree(model, 
                               feature_names=X.columns, 
                               class_names=[str(c) for c in model.classes_] if model_type == "classification" else None,
-                              filled=True, 
-                              rounded=True,
-                              ax=ax)
+                              filled=True, rounded=True, ax=ax)
                     st.pyplot(fig)
-                
-                # Guardar modelo en session_state
+        
                 model_key = f"{model_choice} - {target_var} ({datetime.now().strftime('%H:%M:%S')})"
                 st.session_state.model_results[model_key] = {
                     'model_type': model_type,
@@ -369,8 +317,8 @@ if uploaded_file is not None:
                     'model': model,
                     'predictors': predictor_vars,
                     'target': target_var,
-                    'X_test': X_test,  # Guardamos los datos de prueba
-                    'y_test': y_test,   # Guardamos los valores reales
+                    'X_test': X_test,
+                    'y_test': y_test,
                     'params': {
                         'test_size': test_size,
                         'random_state': random_state,
@@ -381,20 +329,19 @@ if uploaded_file is not None:
                     },
                     'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 }
-                
+        
                 st.session_state.last_model = model_key
                 st.success(f"Modelo {model_choice} entrenado y guardado para comparación!")
-                
-                # Mostrar resumen del modelo en un card
-                st.markdown(f"""
-                <div class="model-card">
+        
+                st.markdown(f\"\"\"
+                <div class=\"model-card\">
                     <h4>Resumen del Modelo</h4>
                     <p><strong>Nombre:</strong> {model_key}</p>
                     <p><strong>Tipo:</strong> {'Regresión' if model_type == 'regression' else 'Clasificación'}</p>
                     <p><strong>Variables predictoras:</strong> {', '.join(predictor_vars)}</p>
                     <p><strong>Variable objetivo:</strong> {target_var}</p>
                 </div>
-                """, unsafe_allow_html=True)
+                \"\"\", unsafe_allow_html=True)
         
         with tab2:
             st.subheader("🔍 Comparar Modelos Individuales")
@@ -603,6 +550,54 @@ if uploaded_file is not None:
                 
                 if not regression_models and not classification_models:
                     st.warning("No hay modelos para comparar")
+        with tab4:
+              st.subheader("🔮 Predicción Manual")
+          
+              if not st.session_state.model_results:
+                  st.warning("No hay modelos entrenados para realizar predicciones.")
+              else:
+                  # Filtrar modelos de regresión lineal o logística
+                  available_models = {k: v for k, v in st.session_state.model_results.items() if v['model_type'] in ['regression', 'classification']}
+                  
+                  if not available_models:
+                      st.warning("Por ahora solo puedes predecir con modelos de regresión lineal o regresión logística.")
+                  else:
+                      selected_model = st.selectbox("Selecciona un modelo para predecir", list(available_models.keys()))
+                      model_data = st.session_state.model_results[selected_model]
+                      
+                      st.markdown(f"Modelo seleccionado: *{selected_model}*")
+                      predictors = model_data['predictors']
+                      coefficients = model_data['params']['coefficients']
+          
+                      # Crear formulario de inputs
+                      st.write("### Ingresa los valores de las variables predictoras")
+                      user_inputs = {}
+                      for predictor in predictors:
+                          user_inputs[predictor] = st.number_input(f"{predictor}", value=0.0)
+          
+                      if st.button("🚀 Predecir"):
+                          beta_0 = model_data['model'].intercept_
+                          beta_rest = coefficients
+          
+                          # Si beta_rest es lista de listas (por ejemplo en clasificación multiclase), tomamos la primera
+                          if isinstance(beta_rest[0], list):
+                              beta_rest = beta_rest[0]
+          
+                          # Calcular z = β0 + β1·x1 + β2·x2 + ...
+                          z = beta_0
+                          for b, var in zip(beta_rest, predictors):
+                              z += b * user_inputs[var]
+          
+                          st.write(f"*Valor de Z:* {z:.4f}")
+          
+                          # Predicción final
+                          if model_data['model_type'] == 'regression':
+                              st.success(f"🔵 Predicción de Regresión Lineal: {z:.4f}")
+                          elif model_data['model_type'] == 'classification':
+                              prob = 1 / (1 + np.exp(-z))
+                              st.success(f"🟢 Probabilidad predicha (clase 1): {prob:.4f}")
+                              st.info(f"🔵 Probabilidad clase 0: {(1-prob):.4f}")
+
     
     
     # ====================== PCA ======================

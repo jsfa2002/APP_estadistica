@@ -584,24 +584,29 @@ if uploaded_file is not None:
                         if st.button("🚀 Predecir"):
                             beta_0 = model_data['model'].intercept_
                             beta_rest = coefficients
-        
+                        
+                            # Si beta_rest es lista de listas (por ejemplo en clasificación multiclase), tomamos la primera
                             if isinstance(beta_rest[0], list):
                                 beta_rest = beta_rest[0]
-        
+                        
+                            # Calcular z = β0 + β1·x1 + β2·x2 + ...
                             z = beta_0
                             for b, var in zip(beta_rest, predictors):
                                 z += b * user_inputs[var]
-        
-                            st.write(f"*Valor de Z:* {float(z):.4f}")
-        
+                            
+                            z = float(z)  # Asegurarse que sea escalar
+                        
+                            st.write(f"*Valor de Z:* {z:.4f}")
+                        
+                            # Predicción final
                             if model_data['model_type'] == 'regression':
-                                st.success(f"🔵 Predicción de Regresión Lineal: {float(z):.4f}")
+                                st.success(f"🔵 Predicción de Regresión Lineal: {z:.4f}")
                             elif model_data['model_type'] == 'classification':
                                 prob = 1 / (1 + np.exp(-z))
+                                prob = float(prob)  # Convertir a escalar para evitar errores de formato
                                 st.success(f"🟢 Probabilidad predicha (clase 1): {prob:.4f}")
-
                                 st.info(f"🔵 Probabilidad clase 0: {(1 - prob):.4f}")
-            
+                                    
     
     # ====================== PCA ======================
     elif analysis_type == "PCA":

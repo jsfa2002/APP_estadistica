@@ -592,13 +592,14 @@ if uploaded_file is not None:
                             for b, var in zip(beta_rest, predictors):
                                 z += b * user_inputs[var]
         
-                            st.write(f"*Valor de Z:* {z:.4f}")
+                            st.write(f"*Valor de Z:* {float(z):.4f}")
         
                             if model_data['model_type'] == 'regression':
-                                st.success(f"🔵 Predicción de Regresión Lineal: {z:.4f}")
+                                st.success(f"🔵 Predicción de Regresión Lineal: {float(z):.4f}")
                             elif model_data['model_type'] == 'classification':
                                 prob = 1 / (1 + np.exp(-z))
                                 st.success(f"🟢 Probabilidad predicha (clase 1): {prob:.4f}")
+
                                 st.info(f"🔵 Probabilidad clase 0: {(1 - prob):.4f}")
             
     

@@ -117,10 +117,16 @@ if uploaded_file is not None:
 
     # ====================== MODELOS PREDICTIVOS ======================
     elif analysis_type == "Modelos Predictivos":
-        st.subheader("🔮 Modelos Predictivos")
-        
-        # Pestañas para organización
-        tab1, tab2, tab3 = st.tabs(["🏋️ Entrenar Modelo", "🔍 Comparar Modelos", "📊 Comparar Todos"])
+      st.subheader("🔮 Modelos Predictivos")
+      # Pestañas para organización
+      # ✅ Agregamos tab4 desde el inicio
+      tab1, tab2, tab3, tab4 = st.tabs([
+          "🏋️ Entrenar Modelo",
+          "🔍 Comparar Modelos",
+          "📊 Comparar Todos",
+          "🔮 Predicción Manual"
+      ])
+      
         
         with tab1:
             model_choice = st.selectbox("Selecciona el modelo", 

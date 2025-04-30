@@ -396,8 +396,8 @@ if uploaded_file is not None:
                                     row[k] = v
                                     
                         if model_data['model_type'] == 'classification':
-                            y_true = model_data['target_values']
-                            y_pred_proba = model_data['model'].predict_proba(model_data['predictor_values'])[:, 1]
+                            y_true = model_data['y_test']
+                            y_pred_proba = model_data['model'].predict_proba(model_data['X_test'])[:, 1]
                             
                             fpr, tpr, _ = roc_curve(y_true, y_pred_proba)
                             roc_auc = auc(fpr, tpr)

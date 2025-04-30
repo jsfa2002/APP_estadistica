@@ -124,8 +124,7 @@ if uploaded_file is not None:
           "🏋️ Entrenar Modelo",
           "🔍 Comparar Modelos",
           "📊 Comparar Todos",
-          "🔮 Predicción Manual"
-      ])
+          "🔮 Predicción Manual"])
       
         
         with tab1:

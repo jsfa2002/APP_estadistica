@@ -555,55 +555,52 @@ if uploaded_file is not None:
                 
                 if not regression_models and not classification_models:
                     st.warning("No hay modelos para comparar")
-        with tab4:
-              st.subheader("🔮 Predicción Manual")
-          
-              if not st.session_state.model_results:
-                  st.warning("No hay modelos entrenados para realizar predicciones.")
-              else:
-                  # Filtrar modelos de regresión lineal o logística
-                  available_models = {k: v for k, v in st.session_state.model_results.items() if v['model_type'] in ['regression', 'classification']}
-                  
-                  if not available_models:
-                      st.warning("Por ahora solo puedes predecir con modelos de regresión lineal o regresión logística.")
-                  else:
-                      selected_model = st.selectbox("Selecciona un modelo para predecir", list(available_models.keys()))
-                      model_data = st.session_state.model_results[selected_model]
-                      
-                      st.markdown(f"Modelo seleccionado: *{selected_model}*")
-                      predictors = model_data['predictors']
-                      coefficients = model_data['params']['coefficients']
-          
-                      # Crear formulario de inputs
-                      st.write("### Ingresa los valores de las variables predictoras")
-                      user_inputs = {}
-                      for predictor in predictors:
-                          user_inputs[predictor] = st.number_input(f"{predictor}", value=0.0)
-          
-                      if st.button("🚀 Predecir"):
-                          beta_0 = model_data['model'].intercept_
-                          beta_rest = coefficients
-          
-                          # Si beta_rest es lista de listas (por ejemplo en clasificación multiclase), tomamos la primera
-                          if isinstance(beta_rest[0], list):
-                              beta_rest = beta_rest[0]
-          
-                          # Calcular z = β0 + β1·x1 + β2·x2 + ...
-                          z = beta_0
-                          for b, var in zip(beta_rest, predictors):
-                              z += b * user_inputs[var]
-          
-                          st.write(f"*Valor de Z:* {z:.4f}")
-          
-                          # Predicción final
-                          if model_data['model_type'] == 'regression':
-                              st.success(f"🔵 Predicción de Regresión Lineal: {z:.4f}")
-                          elif model_data['model_type'] == 'classification':
-                              prob = 1 / (1 + np.exp(-z))
-                              st.success(f"🟢 Probabilidad predicha (clase 1): {prob:.4f}")
-                              st.info(f"🔵 Probabilidad clase 0: {(1-prob):.4f}")
-
-    
+            with tab4:
+                st.subheader("🔮 Predicción Manual")
+        
+                if not st.session_state.model_results:
+                    st.warning("No hay modelos entrenados para realizar predicciones.")
+                else:
+                    available_models = {
+                        k: v for k, v in st.session_state.model_results.items()
+                        if v['model_type'] in ['regression', 'classification']
+                    }
+        
+                    if not available_models:
+                        st.warning("Por ahora solo puedes predecir con modelos de regresión lineal o logística.")
+                    else:
+                        selected_model = st.selectbox("Selecciona un modelo para predecir", list(available_models.keys()))
+                        model_data = st.session_state.model_results[selected_model]
+        
+                        st.markdown(f"Modelo seleccionado: *{selected_model}*")
+                        predictors = model_data['predictors']
+                        coefficients = model_data['params']['coefficients']
+        
+                        st.write("### Ingresa los valores de las variables predictoras")
+                        user_inputs = {}
+                        for predictor in predictors:
+                            user_inputs[predictor] = st.number_input(f"{predictor}", value=0.0)
+        
+                        if st.button("🚀 Predecir"):
+                            beta_0 = model_data['model'].intercept_
+                            beta_rest = coefficients
+        
+                            if isinstance(beta_rest[0], list):
+                                beta_rest = beta_rest[0]
+        
+                            z = beta_0
+                            for b, var in zip(beta_rest, predictors):
+                                z += b * user_inputs[var]
+        
+                            st.write(f"*Valor de Z:* {z:.4f}")
+        
+                            if model_data['model_type'] == 'regression':
+                                st.success(f"🔵 Predicción de Regresión Lineal: {z:.4f}")
+                            elif model_data['model_type'] == 'classification':
+                                prob = 1 / (1 + np.exp(-z))
+                                st.success(f"🟢 Probabilidad predicha (clase 1): {prob:.4f}")
+                                st.info(f"🔵 Probabilidad clase 0: {(1 - prob):.4f}")
+            
     
     # ====================== PCA ======================
     elif analysis_type == "PCA":

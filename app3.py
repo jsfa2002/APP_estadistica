@@ -333,15 +333,15 @@ if uploaded_file is not None:
                 st.session_state.last_model = model_key
                 st.success(f"Modelo {model_choice} entrenado y guardado para comparación!")
         
-                st.markdown(f\"\"\"
-                <div class=\"model-card\">
-                    <h4>Resumen del Modelo</h4>
-                    <p><strong>Nombre:</strong> {model_key}</p>
-                    <p><strong>Tipo:</strong> {'Regresión' if model_type == 'regression' else 'Clasificación'}</p>
-                    <p><strong>Variables predictoras:</strong> {', '.join(predictor_vars)}</p>
-                    <p><strong>Variable objetivo:</strong> {target_var}</p>
-                </div>
-                \"\"\", unsafe_allow_html=True)
+                st.markdown(f"""
+                    <div class="model-card">
+                        <h4>Resumen del Modelo</h4>
+                        <p><strong>Nombre:</strong> {model_key}</p>
+                        <p><strong>Tipo:</strong> {'Regresión' if model_type == 'regression' else 'Clasificación'}</p>
+                        <p><strong>Variables predictoras:</strong> {', '.join(predictor_vars)}</p>
+                        <p><strong>Variable objetivo:</strong> {target_var}</p>
+                    </div>
+                """, unsafe_allow_html=True)
         
         with tab2:
             st.subheader("🔍 Comparar Modelos Individuales")

@@ -443,8 +443,7 @@ if uploaded_file is not None:
                                     except Exception as e:
                                         st.warning(f"No se pudo calcular ROC para {model_name}: {e}")
                             ax.plot([0, 1], [0, 1], 'k--', lw=1)
-                            ax.set_xlabel('Tasa de Falsos Positivos (FPR)')
-                            ax.set_ylabel('Tasa de Verdaderos Positivos (TPR)')
+                            
                             ax.set_title('Comparación de Curvas ROC')
                             ax.legend(loc="lower right")
                             st.pyplot(fig)

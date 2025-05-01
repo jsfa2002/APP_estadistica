@@ -25,7 +25,7 @@ from datetime import datetime
 
 # Configuración de la página
 st.set_page_config(page_title="ReDim - Análisis Multivariado y Métodos Predictivos", layout="wide")
-st.title('📊 ReDim: Análisis Multivariado Completo')
+st.title('📊 ReDim: Análisis Multivariado y Métodos Predictivos')
 
 # CSS personalizado
 st.markdown("""

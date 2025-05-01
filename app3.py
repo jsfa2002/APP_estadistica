@@ -15,7 +15,9 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticD
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor, plot_tree
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import (confusion_matrix, accuracy_score, classification_report, 
-                           mean_squared_error, r2_score, precision_score, recall_score, f1_score, roc_curve, auc)
+                           mean_squared_error, r2_score, precision_score, recall_score, f1_score, 
+                           roc_curve, auc, roc_auc_score)
+
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer

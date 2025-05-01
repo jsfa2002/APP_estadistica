@@ -448,7 +448,9 @@ if uploaded_file is not None:
                             ax.set_title('Comparación de Curvas ROC')
                             ax.legend(loc="lower right")
                             st.pyplot(fig)
-                        ax.set_title(title)
+                        else:
+                            st.warning("Los modelos seleccionados no son todos clasificadores.")
+                                                ax.set_title(title)
                         ax.set_ylabel("Valor Métrica")
                         ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
                         st.pyplot(fig)

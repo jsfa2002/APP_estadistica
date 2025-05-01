@@ -428,6 +428,26 @@ if uploaded_file is not None:
                         
                         fig, ax = plt.subplots(figsize=(10, 6))
                         df_comparison.set_index('Modelo')[metrics_to_show].plot(kind='bar', ax=ax)
+                      # Comparar curvas ROC si todos los modelos seleccionados son clasificadores
+                        if all(results_to_compare[m]['model_type'] == 'classification' for m in results_to_compare):
+                            st.write("### 🔵 Comparación de Curvas ROC")
+                            fig, ax = plt.subplots(figsize=(10, 6))
+                            for model_name, model_data in results_to_compare.items():
+                                if hasattr(model_data['model'], 'predict_proba'):
+                                    try:
+                                        y_true = model_data['y_test']
+                                        y_pred_proba = model_data['model'].predict_proba(model_data['X_test'])[:, 1]
+                                        fpr, tpr, _ = roc_curve(y_true, y_pred_proba)
+                                        auc_score = auc(fpr, tpr)
+                                        ax.plot(fpr, tpr, label=f"{model_name} (AUC = {auc_score:.2f})")
+                                    except Exception as e:
+                                        st.warning(f"No se pudo calcular ROC para {model_name}: {e}")
+                            ax.plot([0, 1], [0, 1], 'k--', lw=1)
+                            ax.set_xlabel('Tasa de Falsos Positivos (FPR)')
+                            ax.set_ylabel('Tasa de Verdaderos Positivos (TPR)')
+                            ax.set_title('Comparación de Curvas ROC')
+                            ax.legend(loc="lower right")
+                            st.pyplot(fig)
                         ax.set_title(title)
                         ax.set_ylabel("Valor Métrica")
                         ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')

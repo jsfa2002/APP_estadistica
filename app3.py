@@ -139,6 +139,7 @@ if uploaded_file is not None:
             predictor_vars = st.multiselect("Selecciona las variables predictoras (X)", df.columns.drop(target_var))
         
             with st.expander("⚙ Configuración Avanzada"):
+                balance_classes = st.checkbox("Balancear clases (solo para clasificación)", value=False)
                 test_size = st.slider("Tamaño del conjunto de prueba (%)", 10, 40, 30)
                 random_state = st.number_input("Semilla aleatoria", value=42)
         
@@ -157,7 +158,15 @@ if uploaded_file is not None:
                 if X.select_dtypes(include=['object']).any().any():
                     X = pd.get_dummies(X, drop_first=True)
         
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=random_state)
+                if model_type == "classification" and balance_classes:
+                    X_train, X_test, y_train, y_test = train_test_split(
+                        X, y, test_size=test_size/100, random_state=random_state, stratify=y
+                    )
+                else:
+                    X_train, X_test, y_train, y_test = train_test_split(
+                        X, y, test_size=test_size/100, random_state=random_state
+                    )
+
         
                 model = None
                 model_type = ""

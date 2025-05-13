@@ -24,6 +24,7 @@ from sklearn.impute import SimpleImputer
 from prince import MCA
 from collections import defaultdict
 from datetime import datetime
+from sklearn.metrics import roc_auc_score
 
 # Configuración de la página
 st.set_page_config(page_title="ReDim - Análisis Multivariado y Métodos Predictivos", layout="wide")

@@ -158,6 +158,15 @@ if uploaded_file is not None:
                 if X.select_dtypes(include=['object']).any().any():
                     X = pd.get_dummies(X, drop_first=True)
         
+                if model_choice == "Regresión Logística":
+                    model_type = "classification"
+                elif model_choice == "LDA":
+                    model_type = "classification"
+                elif model_choice == "QDA":
+                    model_type = "classification"
+                else:
+                    model_type = "regression"
+
                 if model_type == "classification" and balance_classes:
                     X_train, X_test, y_train, y_test = train_test_split(
                         X, y, test_size=test_size/100, random_state=random_state, stratify=y
@@ -169,32 +178,23 @@ if uploaded_file is not None:
 
         
                 model = None
-                model_type = ""
         
                 if model_choice == "Regresión Lineal":
                     model = LinearRegression()
-                    model_type = "regression"
                 elif model_choice == "Regresión Logística":
                     model = LogisticRegression(max_iter=1000, random_state=random_state)
-                    model_type = "classification"
                 elif model_choice == "LDA":
                     model = LinearDiscriminantAnalysis()
-                    model_type = "classification"
                 elif model_choice == "QDA":
                     model = QuadraticDiscriminantAnalysis()
-                    model_type = "classification"
                 elif model_choice == "Árbol de Decisión (Clasificación)":
                     model = DecisionTreeClassifier(max_depth=max_depth, min_samples_split=min_samples_split, random_state=random_state)
-                    model_type = "classification"
                 elif model_choice == "Árbol de Decisión (Regresión)":
                     model = DecisionTreeRegressor(max_depth=max_depth, min_samples_split=min_samples_split, random_state=random_state)
-                    model_type = "regression"
                 elif model_choice == "Random Forest (Clasificación)":
                     model = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, min_samples_split=min_samples_split, random_state=random_state)
-                    model_type = "classification"
                 elif model_choice == "Random Forest (Regresión)":
                     model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, min_samples_split=min_samples_split, random_state=random_state)
-                    model_type = "regression"
         
                 with st.spinner("Entrenando modelo..."):
                     model.fit(X_train, y_train)
@@ -220,26 +220,6 @@ if uploaded_file is not None:
                     ax.set_ylabel('Valores Predichos')
                     ax.set_title('Valores Reales vs Predichos')
                     st.pyplot(fig)
-        
-                    if hasattr(model, 'coef_'):
-                        st.write("### Coeficientes Beta (β)")
-                        coef_df = pd.DataFrame({
-                            "Variable": X.columns,
-                            "Coeficiente (β)": model.coef_.flatten()
-                        })
-        
-                        st.markdown("""<div style="overflow-x: auto;"><table class="coef-table">
-                                        <thead><tr><th>Variable</th><th>Coeficiente (β)</th></tr></thead><tbody>""", unsafe_allow_html=True)
-        
-                        for _, row in coef_df.iterrows():
-                            st.markdown(f"<tr><td>{row['Variable']}</td><td>{row['Coeficiente (β)']:.6f}</td></tr>", unsafe_allow_html=True)
-        
-                        st.markdown("""</tbody></table></div>""", unsafe_allow_html=True)
-        
-                        fig, ax = plt.subplots(figsize=(10, 6))
-                        sns.barplot(x='Coeficiente (β)', y='Variable', data=coef_df.sort_values('Coeficiente (β)', ascending=False), ax=ax)
-                        ax.set_title('Magnitud de los Coeficientes Beta')
-                        st.pyplot(fig)
         
                 else:
                     st.write("### Métricas de Clasificación")
@@ -358,6 +338,7 @@ if uploaded_file is not None:
                         <p><strong>Variable objetivo:</strong> {target_var}</p>
                     </div>
                 """, unsafe_allow_html=True)
+
         
         with tab2:
             st.subheader("🔍 Comparar Modelos Individuales")
